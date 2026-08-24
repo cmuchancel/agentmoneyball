@@ -1,4 +1,6 @@
 from scouting.schemas import AnalysisPacket, Metric, deterministic_checks
+from scouting.graph import DailyUsage
+import pytest
 
 
 def packet(**changes):
@@ -24,3 +26,14 @@ def test_bad_rate_and_missing_evidence_fail():
 def test_small_sample_needs_warning():
     assert any("small sample" in e for e in deterministic_checks(packet(sample_size=4)))
 
+
+def test_daily_usage_guard(tmp_path):
+    usage = DailyUsage()
+    usage.path = tmp_path / "usage.json"
+    usage.limit = 100
+    usage.reserve = 20
+    usage.add(30)
+    assert usage.snapshot()["remaining"] == 70
+    usage.add(50)
+    with pytest.raises(RuntimeError, match="Daily PitchQuery token guard"):
+        usage.ensure_capacity()

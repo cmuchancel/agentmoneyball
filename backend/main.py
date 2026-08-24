@@ -12,11 +12,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from pydantic import BaseModel
+from dotenv import load_dotenv
 
 from backend.scouting.data import DataValidationError, load_and_prepare, save_prepared
-from backend.scouting.graph import build_graph, live_services
 
 ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT / ".env")
+
+from backend.scouting.graph import build_graph, daily_usage_snapshot, live_services
+
 STORE = ROOT / ".data"
 DEMO = ROOT / "data" / "Track_Combo.csv"
 datasets: dict[str, dict[str, Any]] = {}
@@ -96,6 +100,7 @@ def chat(request: ChatRequest):
                 stage = "Revising calculation" if node == "semantic_gate" and value.get("gate_verdict", {}).get("verdict") == "revise" else next_stage[node]
                 yield json.dumps({"type": "progress", "stage": stage}) + "\n"
             if "final_answer" in value:
-                yield json.dumps({"type": "result", "data": value["final_answer"]}, default=str) + "\n"
+                answer = {**value["final_answer"], "daily_usage": daily_usage_snapshot()}
+                yield json.dumps({"type": "result", "data": answer}, default=str) + "\n"
 
     return StreamingResponse(events(), media_type="application/x-ndjson")

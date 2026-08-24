@@ -31,6 +31,8 @@ pixi run build
 
 The normal test suite uses injected analysis/gate functions and never requires an API key. Live chat uses OpenAI Code Interpreter, so it does require `OPENAI_API_KEY` and incurs API usage.
 
+PitchQuery defaults to `gpt-5.4-mini`, low reasoning, six hosted tool calls, and bounded output. A local daily usage ledger stops new analyses at 1.25M reported tokens against the default 1.5M app limit, leaving 250K headroom for an in-flight analysis. This ledger does not include other applications using the same OpenAI project.
+
 ## Architecture
 
 - `backend/scouting/graph.py`: the complete LangChain analyst + semantic gate + bounded LangGraph loop.

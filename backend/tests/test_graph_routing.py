@@ -44,3 +44,12 @@ def test_attempt_limit_stops_failures():
     assert result["analysis_attempt"] == 3
     assert result["final_answer"]["status"] == "cannot_answer"
 
+
+def test_cannot_answer_does_not_retry():
+    unavailable = good_packet().model_copy(update={"status": "cannot_answer", "metrics": [],
+                                                   "executed_code": [], "execution_evidence": [],
+                                                   "warnings": ["Model unavailable"]})
+    result = invoke(build_graph(lambda state: unavailable,
+                                lambda state: GateVerdict(verdict="pass", reason="unused")))
+    assert result["analysis_attempt"] == 1
+    assert result["final_answer"]["answer"] == "Model unavailable"
