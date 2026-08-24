@@ -83,7 +83,7 @@ def live_services(file_id: str, profile: dict[str, Any]) -> tuple[Runner, Gate]:
     model_name = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
     callback = UsageCallback()
     model = ChatOpenAI(model=model_name, use_responses_api=True, temperature=0,
-                       reasoning_effort="low", max_tokens=6000, callbacks=[callback],
+                       reasoning_effort="low", max_tokens=16000, callbacks=[callback],
                        extra_body={"max_tool_calls": 6})
     analyst = create_agent(
         model=model,

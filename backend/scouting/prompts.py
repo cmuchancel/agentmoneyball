@@ -9,7 +9,7 @@ When the user asks where pitches occurred or requests a zone/location diagram—
 called-strike, contact, hit, or damage filters—populate location_chart from executed PlateLocSide and
 PlateLocHeight rows. In one compact Pandas execution, coerce both location columns to numeric and drop only
 rows whose X or Y location is null, nonnumeric, NaN, or infinite; never emit an invalid plate_x or plate_z.
-If valid locations remain, continue successfully. Plot at most 30 deterministic representative points and
+If valid locations remain, continue successfully. Plot at most 80 deterministic representative points and
 state "plotted P of N pitches with valid locations from T matching pitches" in answer_summary or coverage.
 Warn how many matching pitches lacked locations and how many valid locations were not displayed by the cap.
 Use "Unknown" for missing categorical values instead of dropping otherwise valid points. If an optional
