@@ -93,7 +93,7 @@ export default function Home() {
     if (!dataset || !text.trim() || busy) return;
     const trace: ProgressEvent[] = [];
     setTurns(t => [...t, {role: "user", text}]); setInput(""); setBusy(true); setError(""); setProcess([]);
-    try { const detail = await chat(thread, dataset.dataset_id, text, event => { trace.push(event); setProcess([...trace]); }); setTurns(t => [...t, {role: "assistant", text: detail.answer, detail, process: [...trace]}]); }
+    try { const detail = await chat(thread, dataset.dataset_id, text, event => { trace.push(event); setProcess([...trace]); }, turns.slice(-6).map(turn => ({role: turn.role, content: turn.text}))); setTurns(t => [...t, {role: "assistant", text: detail.answer, detail, process: [...trace]}]); }
     catch (e) { setError(e instanceof Error ? e.message : "Analysis failed"); }
     finally { setBusy(false); setProcess([]); }
   }

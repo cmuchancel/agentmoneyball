@@ -11,9 +11,10 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
+from backend.scouting.context import conversation_messages
 from backend.scouting.data import DataValidationError, combine_csv_files, load_and_prepare, profile_for_prompt, save_prepared
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +36,7 @@ class ChatRequest(BaseModel):
     thread_id: str
     dataset_id: str
     message: str
+    messages: list[dict[str, str]] = Field(default_factory=list)
 
 
 def register(path: Path, display_name: str, demo_aliases: bool = False) -> dict[str, Any]:
@@ -94,9 +96,8 @@ def chat(request: ChatRequest):
         raise HTTPException(503, "Set OPENAI_API_KEY to run AI analysis.")
     state = {"thread_id": request.thread_id, "dataset_id": request.dataset_id,
              "dataset_profile": data["profile"].model_dump(), "question": request.message,
-             "messages": [{"role": "user", "content": request.message}], "analysis_attempt": 0,
-             "gate_feedback": ""}
-    config = {"configurable": {"thread_id": f"{request.dataset_id}:{request.thread_id}"}}
+             "messages": conversation_messages(request.messages, request.message), "analysis_attempt": 0,
+             "gate_feedback": "", "gate_verdict": {}}
 
     def events():
         profile = data["profile"]
@@ -111,7 +112,7 @@ def chat(request: ChatRequest):
             yield json.dumps({"type": "progress", "stage": "Dataset ready for analysis", "detail":
                               "The analyst can now inspect columns and execute Pandas code.", "status": "complete"}) + "\n"
         graph = graphs[request.dataset_id]
-        for mode, update in graph.stream(state, config=config, stream_mode=["custom", "updates"]):
+        for mode, update in graph.stream(state, stream_mode=["custom", "updates"]):
             if mode == "custom":
                 yield json.dumps({"type": "progress", **update}) + "\n"
                 continue

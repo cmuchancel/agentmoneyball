@@ -97,3 +97,26 @@ def test_progress_stream_explains_cannot_answer():
     stages = [event["stage"] for event in progress_events(build_graph(
         lambda state: unavailable, lambda state: GateVerdict(verdict="pass", reason="unused")))]
     assert "Stopped without a numerical answer" in stages
+
+
+def test_new_request_does_not_reuse_old_gate_reason_after_an_exception():
+    calls = 0
+    def run(state):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return good_packet()
+        raise RuntimeError("current analysis exception")
+    graph = build_graph(run, lambda state: GateVerdict(verdict="pass", reason="old gate reason"))
+    assert invoke(graph)["final_answer"]["status"] == "success"
+    failed = invoke(graph)
+    assert failed["final_answer"]["answer"] == "current analysis exception"
+
+
+def test_progress_stream_exposes_analysis_exception():
+    def fail(state):
+        raise RuntimeError("tool execution exploded")
+    events = progress_events(build_graph(fail, lambda state: GateVerdict(verdict="pass", reason="unused")))
+    failures = [event for event in events if event["stage"] == "Analysis attempt failed"]
+    assert len(failures) == 3
+    assert failures[0]["detail"] == "tool execution exploded"

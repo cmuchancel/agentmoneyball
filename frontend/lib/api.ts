@@ -25,8 +25,9 @@ export async function upload(files?: File[]) {
   return checked(await fetch(`${base}/api/datasets`, { method: "POST", body })) as Promise<{dataset_id: string; profile: Profile}>;
 }
 
-export async function chat(thread_id: string, dataset_id: string, message: string, onProgress: (event: ProgressEvent) => void) {
-  const response = await fetch(`${base}/api/chat`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({thread_id, dataset_id, message}) });
+export async function chat(thread_id: string, dataset_id: string, message: string, onProgress: (event: ProgressEvent) => void,
+                           messages: {role: "user" | "assistant"; content: string}[] = []) {
+  const response = await fetch(`${base}/api/chat`, { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({thread_id, dataset_id, message, messages}) });
   if (!response.ok || !response.body) return checked(response) as Promise<Answer>;
   const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = ""; let answer: Answer | undefined;
   while (true) {

@@ -11,7 +11,6 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
@@ -138,20 +137,23 @@ def build_graph(run: Runner, gate: Gate):
     def run_analysis(state: AnalysisState) -> dict[str, Any]:
         attempt = state.get("analysis_attempt", 0) + 1
         report("Analyzing the pitch data", f"Attempt {attempt} of {MAX_ATTEMPTS}: inspecting columns, choosing filters, and running Python.", attempt)
+        error = ""
         try:
             packet = run({**state, "analysis_attempt": attempt})
         except Exception as exc:
-            detail = str(exc)
-            access_error = any(code in detail for code in ("401", "403", "model_not_found", "insufficient_quota"))
+            error = str(exc)
+            access_error = any(code in error for code in ("401", "403", "model_not_found", "insufficient_quota"))
             packet = AnalysisPacket(
                 status="cannot_answer" if access_error else "error",
                 question_interpreted=state["question"], answer_summary="",
                 method="Execution failed", coverage="Unknown",
-                warnings=["OpenAI rejected the configured model or credentials. Check project model access and API billing." if access_error else detail],
+                warnings=["OpenAI rejected the configured model or credentials. Check project model access and API billing." if access_error else error],
                 execution_evidence=[],
             )
-        report("Analysis attempt complete", f"Attempt {attempt} returned a structured result for verification.", attempt, "complete")
-        return {"analysis_attempt": attempt, "analysis_packet": packet.model_dump()}
+        report("Analysis attempt failed" if error else "Analysis attempt complete",
+               short(error) if error else f"Attempt {attempt} returned a structured result for verification.",
+               attempt, "revise" if error else "complete")
+        return {"analysis_attempt": attempt, "analysis_packet": packet.model_dump(), "gate_verdict": {}}
 
     def check_result(state: AnalysisState) -> dict[str, Any]:
         packet = AnalysisPacket.model_validate(state["analysis_packet"])
@@ -184,7 +186,8 @@ def build_graph(run: Runner, gate: Gate):
     def cannot_answer(state: AnalysisState) -> dict[str, Any]:
         packet = AnalysisPacket.model_validate(state["analysis_packet"])
         verdict = state.get("gate_verdict", {})
-        reason = verdict.get("reason") or (packet.warnings[0] if packet.warnings else "; ".join(state.get("deterministic_errors", [])))
+        reason = packet.warnings[0] if packet.status == "error" and packet.warnings else \
+            verdict.get("reason") or (packet.warnings[0] if packet.warnings else "; ".join(state.get("deterministic_errors", [])))
         if packet.missing_fields:
             reason = f"Required fields are missing: {', '.join(packet.missing_fields)}. {reason}"
         report("Stopped without a numerical answer", reason or "The result could not be verified.", state["analysis_attempt"], "stopped")
@@ -219,4 +222,4 @@ def build_graph(run: Runner, gate: Gate):
     graph.add_conditional_edges("semantic_gate", after_gate)
     graph.add_edge("finalize", END)
     graph.add_edge("cannot_answer", END)
-    return graph.compile(checkpointer=InMemorySaver())
+    return graph.compile()
