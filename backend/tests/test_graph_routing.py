@@ -49,6 +49,19 @@ def test_revision_feedback_reaches_second_attempt():
     assert seen == ["", "split by side"]
 
 
+def test_gate_cannot_answer_repairs_an_incomplete_successful_packet():
+    seen = []
+    def run(state):
+        seen.append(state.get("gate_feedback", ""))
+        return good_packet()
+    def gate(state):
+        return GateVerdict(verdict="cannot_answer", reason="requested chart is missing") \
+            if state["analysis_attempt"] == 1 else GateVerdict(verdict="pass", reason="complete")
+    result = invoke(build_graph(run, gate))
+    assert result["analysis_attempt"] == 2
+    assert seen == ["", "requested chart is missing"]
+
+
 def test_validation_feedback_reaches_second_attempt():
     seen = []
     def run(state):

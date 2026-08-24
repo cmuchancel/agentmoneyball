@@ -169,6 +169,10 @@ def build_graph(run: Runner, gate: Gate):
     def semantic_gate(state: AnalysisState) -> dict[str, Any]:
         report("Reviewing answer coverage", "The evidence gate is checking the requested filters, definitions, and supporting output.", state["analysis_attempt"])
         verdict = gate(state)
+        packet = AnalysisPacket.model_validate(state["analysis_packet"])
+        if verdict.verdict == "cannot_answer" and packet.status == "success" and state["analysis_attempt"] < MAX_ATTEMPTS:
+            verdict = verdict.model_copy(update={"verdict": "revise",
+                                                  "next_instruction": verdict.next_instruction or verdict.reason})
         detail = short(verdict.next_instruction or verdict.reason)
         if verdict.verdict == "pass":
             report("Evidence review passed", short(verdict.reason), state["analysis_attempt"], "complete")
