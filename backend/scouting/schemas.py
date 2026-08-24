@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+import operator
+from typing import Annotated, Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -68,7 +69,7 @@ class AnalysisState(TypedDict, total=False):
     thread_id: str
     dataset_id: str
     dataset_profile: dict[str, Any]
-    messages: list[dict[str, str]]
+    messages: Annotated[list[dict[str, str]], operator.add]
     question: str
     prior_analysis_context: str
     gate_feedback: str
@@ -115,4 +116,3 @@ def deterministic_checks(packet: AnalysisPacket, question: str = "") -> list[str
     if packet.sample_size is not None and packet.sample_size < 20 and not packet.warnings:
         errors.append("small sample is missing a warning")
     return errors
-

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import shutil
 import uuid
 from pathlib import Path
@@ -8,6 +9,7 @@ from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from pydantic import BaseModel
 
@@ -77,11 +79,23 @@ def chat(request: ChatRequest):
         runner, gate = live_services(file_id, data["profile"].model_dump())
         graphs[request.dataset_id] = build_graph(runner, gate)
     graph = graphs[request.dataset_id]
-    result = graph.invoke(
-        {"thread_id": request.thread_id, "dataset_id": request.dataset_id,
-         "dataset_profile": data["profile"].model_dump(), "question": request.message,
-         "messages": [{"role": "user", "content": request.message}], "analysis_attempt": 0,
-         "gate_feedback": ""},
-        config={"configurable": {"thread_id": f"{request.dataset_id}:{request.thread_id}"}},
-    )
-    return result["final_answer"]
+    state = {"thread_id": request.thread_id, "dataset_id": request.dataset_id,
+             "dataset_profile": data["profile"].model_dump(), "question": request.message,
+             "messages": [{"role": "user", "content": request.message}], "analysis_attempt": 0,
+             "gate_feedback": ""}
+    config = {"configurable": {"thread_id": f"{request.dataset_id}:{request.thread_id}"}}
+    next_stage = {"run_analysis": "Checking calculation", "check_result": "Verifying evidence",
+                  "semantic_gate": "Writing scouting answer"}
+
+    def events():
+        yield json.dumps({"type": "progress", "stage": "Interpreting the question"}) + "\n"
+        yield json.dumps({"type": "progress", "stage": "Running Pandas analysis"}) + "\n"
+        for update in graph.stream(state, config=config, stream_mode="updates"):
+            node, value = next(iter(update.items()))
+            if node in next_stage:
+                stage = "Revising calculation" if node == "semantic_gate" and value.get("gate_verdict", {}).get("verdict") == "revise" else next_stage[node]
+                yield json.dumps({"type": "progress", "stage": stage}) + "\n"
+            if "final_answer" in value:
+                yield json.dumps({"type": "result", "data": value["final_answer"]}, default=str) + "\n"
+
+    return StreamingResponse(events(), media_type="application/x-ndjson")

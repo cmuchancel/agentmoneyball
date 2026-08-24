@@ -39,7 +39,8 @@ The normal test suite uses injected analysis/gate functions and never requires a
 - `backend/main.py`: two primary FastAPI endpoints.
 - `frontend/app/page.tsx`: one-page upload and chat UI.
 
+The frontend uses source-installed ElevenLabs UI `Conversation`, `Message`, `Response`, and `ShimmeringText` components. It does not connect to an ElevenLabs Agent ID; streamed progress comes from the LangGraph analysis workflow.
+
 ## Sharing
 
 This folder is ready for Git. Commit it to a private/public GitHub repository and share the repository link, or download the repository as a ZIP. Secrets and generated environments are excluded by `.gitignore`.
-
