@@ -16,6 +16,14 @@ def invoke(graph):
                         config={"configurable": {"thread_id": "test"}})
 
 
+def progress_events(graph):
+    items = graph.stream({"question": "slider rate?", "analysis_attempt": 0, "messages": [],
+                          "thread_id": "t", "dataset_id": "d"},
+                         config={"configurable": {"thread_id": "progress-test"}},
+                         stream_mode=["custom", "updates"])
+    return [item for mode, item in items if mode == "custom"]
+
+
 def test_pass_route():
     graph = build_graph(lambda state: good_packet(),
                         lambda state: GateVerdict(verdict="pass", reason="complete"))
@@ -64,3 +72,24 @@ def test_cannot_answer_does_not_retry():
                                 lambda state: GateVerdict(verdict="pass", reason="unused")))
     assert result["analysis_attempt"] == 1
     assert result["final_answer"]["answer"] == "Model unavailable"
+
+
+def test_progress_stream_explains_revision_and_success():
+    def gate(state):
+        return GateVerdict(verdict="revise", reason="missing split", next_instruction="split by side") \
+            if state["analysis_attempt"] == 1 else GateVerdict(verdict="pass", reason="complete")
+    events = progress_events(build_graph(lambda state: good_packet(), gate))
+    stages = [event["stage"] for event in events]
+    assert "Evidence review requested a revision" in stages
+    assert "Evidence review passed" in stages
+    assert [event["attempt"] for event in events if event["stage"] == "Analyzing the pitch data"] == [1, 2]
+    assert all(event.get("detail") for event in events)
+
+
+def test_progress_stream_explains_cannot_answer():
+    unavailable = good_packet().model_copy(update={"status": "cannot_answer", "metrics": [],
+                                                   "executed_code": [], "execution_evidence": [],
+                                                   "warnings": ["Model unavailable"]})
+    stages = [event["stage"] for event in progress_events(build_graph(
+        lambda state: unavailable, lambda state: GateVerdict(verdict="pass", reason="unused")))]
+    assert "Stopped without a numerical answer" in stages

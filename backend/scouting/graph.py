@@ -12,6 +12,7 @@ from langchain.agents import create_agent
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
 from .prompts import ANALYST_SYSTEM_PROMPT, GATE_SYSTEM_PROMPT
@@ -130,8 +131,19 @@ def live_services(file_id: str, profile: dict[str, Any]) -> tuple[Runner, Gate]:
 
 
 def build_graph(run: Runner, gate: Gate):
+    def short(text: str, limit: int = 180) -> str:
+        text = " ".join(text.split())
+        return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + "…"
+
+    def report(stage: str, detail: str, attempt: int | None = None, status: str = "active") -> None:
+        event: dict[str, Any] = {"stage": stage, "detail": detail, "status": status}
+        if attempt is not None:
+            event["attempt"] = attempt
+        get_stream_writer()(event)
+
     def run_analysis(state: AnalysisState) -> dict[str, Any]:
         attempt = state.get("analysis_attempt", 0) + 1
+        report("Analyzing the pitch data", f"Attempt {attempt} of {MAX_ATTEMPTS}: inspecting columns, choosing filters, and running Python.", attempt)
         try:
             packet = run({**state, "analysis_attempt": attempt})
         except Exception as exc:
@@ -143,6 +155,7 @@ def build_graph(run: Runner, gate: Gate):
                 warnings=["OpenAI rejected the configured model or credentials. Check project model access and API billing." if access_error else detail],
                 execution_evidence=[],
             )
+        report("Analysis attempt complete", f"Attempt {attempt} returned a structured result for verification.", attempt, "complete")
         return {"analysis_attempt": attempt, "analysis_packet": packet.model_dump()}
 
     def check_result(state: AnalysisState) -> dict[str, Any]:
@@ -151,14 +164,26 @@ def build_graph(run: Runner, gate: Gate):
         result: dict[str, Any] = {"deterministic_errors": errors}
         if errors:
             result["gate_feedback"] = "Fix these validation errors: " + "; ".join(errors)
+            report("Integrity check requested a revision", errors[0], state["analysis_attempt"], "revise")
+        else:
+            report("Integrity checks passed", "Executed evidence and hard arithmetic checks are internally consistent.", state["analysis_attempt"], "complete")
         return result
 
     def semantic_gate(state: AnalysisState) -> dict[str, Any]:
+        report("Reviewing answer coverage", "The evidence gate is checking the requested filters, definitions, and supporting output.", state["analysis_attempt"])
         verdict = gate(state)
+        detail = short(verdict.next_instruction or verdict.reason)
+        if verdict.verdict == "pass":
+            report("Evidence review passed", short(verdict.reason), state["analysis_attempt"], "complete")
+        elif verdict.verdict == "revise":
+            report("Evidence review requested a revision", detail, state["analysis_attempt"], "revise")
+        else:
+            report("Evidence review stopped the answer", short(verdict.reason), state["analysis_attempt"], "stopped")
         return {"gate_verdict": verdict.model_dump(), "gate_feedback": verdict.next_instruction}
 
     def finalize(state: AnalysisState) -> dict[str, Any]:
         packet = AnalysisPacket.model_validate(state["analysis_packet"])
+        report("Preparing the verified answer", "Formatting the calculated result and its evidence for display.", state["analysis_attempt"], "complete")
         return {"final_answer": {"status": "success", "answer": _text(packet), **packet.model_dump()}}
 
     def cannot_answer(state: AnalysisState) -> dict[str, Any]:
@@ -167,6 +192,7 @@ def build_graph(run: Runner, gate: Gate):
         reason = verdict.get("reason") or (packet.warnings[0] if packet.warnings else "; ".join(state.get("deterministic_errors", [])))
         if packet.missing_fields:
             reason = f"Required fields are missing: {', '.join(packet.missing_fields)}. {reason}"
+        report("Stopped without a numerical answer", reason or "The result could not be verified.", state["analysis_attempt"], "stopped")
         return {"final_answer": {
             "status": "cannot_answer", "answer": reason or "The result could not be verified.",
             **packet.model_dump(exclude={"status"}),

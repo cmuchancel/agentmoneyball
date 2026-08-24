@@ -41,6 +41,8 @@ PitchQuery defaults to `gpt-5.4-mini`, low reasoning, six hosted tool calls, and
 - `backend/main.py`: two primary FastAPI endpoints.
 - `frontend/app/page.tsx`: one-page upload and chat UI.
 
+The backend streams real LangGraph node and revision events into a live UI timeline. No extra “observer” model call is used, so process visibility adds no AI token cost.
+
 The frontend uses source-installed ElevenLabs UI `Conversation`, `Message`, `Response`, and `ShimmeringText` components. It does not connect to an ElevenLabs Agent ID; streamed progress comes from the LangGraph analysis workflow.
 
 ## Sharing
