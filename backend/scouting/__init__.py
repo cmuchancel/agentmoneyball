@@ -1,0 +1,2 @@
+"""PitchQuery analysis package."""
+

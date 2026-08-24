@@ -1,0 +1,13 @@
+[
+  {"id":"count","question":"For pitcher 1000036206, what percentage of pitches in 0-2 counts are sliders?","kind":"count_filter","required":["PitcherId","Balls","Strikes","TaggedPitchType"]},
+  {"id":"distribution","question":"What is this pitcher's pitch-type distribution?","kind":"distribution","required":["PitcherId","TaggedPitchType"]},
+  {"id":"handedness","question":"Split pitch usage by batter handedness.","kind":"grouping","required":["BatterSide","TaggedPitchType"]},
+  {"id":"swing","question":"What is the swing rate?","kind":"rate","required":["PitchCall"]},
+  {"id":"whiff","question":"What is the whiff rate per swing?","kind":"rate","required":["PitchCall"],"denominator":"swings"},
+  {"id":"previous","question":"What follows a fastball called strike?","kind":"sequence","required":["PitchCall","TaggedPitchType","_pa_id"]},
+  {"id":"two_pitch","question":"What follows two consecutive fastballs?","kind":"sequence","required":["TaggedPitchType","_pa_id"]},
+  {"id":"velocity","question":"Compare velocity before and after pitch 60.","kind":"comparison","required":["PitchNo","RelSpeed"]},
+  {"id":"location","question":"What is usage in the upper third of the zone?","kind":"location","required":["PlateLocHeight"]},
+  {"id":"unsupported","question":"How does he perform with runners on first and third while trailing by one?","kind":"cannot_answer","missing":["runner occupancy","score before pitch"]}
+]
+

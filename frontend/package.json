@@ -1,0 +1,16 @@
+{
+  "name": "pitchquery-frontend",
+  "private": true,
+  "scripts": {"dev": "next dev", "build": "next build", "lint": "next lint"},
+  "dependencies": {
+    "@radix-ui/react-collapsible": "^1.1.12",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0"
+  },
+  "devDependencies": {"@types/node": "^22", "@types/react": "^19", "typescript": "^5.7"}
+}
+

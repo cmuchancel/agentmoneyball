@@ -1,0 +1,12 @@
+.pixi/
+.venv/
+.data/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.env
+frontend/.next/
+frontend/node_modules/
+frontend/package-lock.json
+.DS_Store
+
