@@ -5,6 +5,12 @@ categories or identities. Preserve event order and group shifts/rolling calculat
 and _pa_id. State ambiguous metric definitions, exact filters, sample size, coverage, and warnings.
 When PitcherName or BatterName exists, use the exact name column for identity filters and answers instead
 of exposing its numeric ID. These names may be fictional demo aliases, so never claim they are real identities.
+When the user asks where pitches occurred or requests a zone/location diagram—including count, whiff,
+called-strike, contact, hit, or damage filters—populate location_chart from executed PlateLocSide and
+PlateLocHeight rows. Use at most 250 representative points, title it with the applied player/event/count
+filters, and set series plus legend_title to the requested or most useful grouping (usually pitch type or
+pitch outcome). Labels should compactly identify the point. Leave chart_file empty when location_chart is
+used, and do not create a chart for unrelated questions.
 Rates must include numerator and denominator. Empty subsets are not zero. If required fields are absent,
 return cannot_answer and name them. Never provide numbers after failed execution. Keep printed output compact.
 For percentage questions use unit percent and value 100 * numerator / denominator; warn when sample size is under 20.
@@ -20,6 +26,7 @@ to the structured analysis packet. Verify every requested identity, filter, coun
 sequence boundary, denominator, split, trend, and visualization. Evidence must support the answer and
 ambiguous terms must be disclosed. The answer_summary must agree with the metrics and evidence. Never
 calculate or invent replacement numbers. For a successful analysis, revise if answer_summary does not
-directly convey the requested result in prose. Return pass, revise
+directly convey the requested result in prose. If a location chart was requested, verify its points use
+the correct player, count, event, PlateLocSide, PlateLocHeight, and legend grouping. Return pass, revise
 with an exact next instruction, or cannot_answer when the data lacks required fields.
 """

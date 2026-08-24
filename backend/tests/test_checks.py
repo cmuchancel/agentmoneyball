@@ -1,4 +1,4 @@
-from scouting.schemas import AnalysisPacket, Metric, deterministic_checks
+from scouting.schemas import AnalysisPacket, LocationChart, LocationPoint, Metric, deterministic_checks
 from scouting.graph import DailyUsage
 import pytest
 
@@ -22,6 +22,14 @@ def test_bad_rate_and_missing_evidence_fail():
                                                           numerator=1, denominator=2)], executed_code=[]))
     assert any("executed code" in error for error in result)
     assert any("disagrees" in error for error in result)
+
+
+def test_location_chart_is_structured_with_legend():
+    chart = LocationChart(title="0-2 locations", legend_title="Pitch type",
+                          points=[LocationPoint(plate_x=-0.2, plate_z=2.4,
+                                                series="Slider", label="Swinging strike")])
+    result = packet(location_chart=chart)
+    assert result.location_chart.points[0].series == "Slider"
 
 
 

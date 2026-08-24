@@ -23,6 +23,19 @@ class Metric(BaseModel):
         return self
 
 
+class LocationPoint(BaseModel):
+    plate_x: float
+    plate_z: float
+    series: str
+    label: str = ""
+
+
+class LocationChart(BaseModel):
+    title: str
+    legend_title: str
+    points: list[LocationPoint] = Field(min_length=1, max_length=250)
+
+
 class AnalysisPacket(BaseModel):
     status: Literal["success", "cannot_answer", "error"]
     question_interpreted: str
@@ -35,6 +48,7 @@ class AnalysisPacket(BaseModel):
     metrics: list[Metric] = Field(default_factory=list)
     sample_size: int | None = Field(default=None, ge=0)
     result_table: list[dict[str, Any]] | None = None
+    location_chart: LocationChart | None = None
     chart_file: str | None = None
     coverage: str
     warnings: list[str] = Field(default_factory=list)

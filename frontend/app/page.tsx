@@ -7,7 +7,7 @@ import { Conversation, ConversationContent, ConversationEmptyState, Conversation
 import { Message, MessageContent } from "@/components/ui/message";
 import { Response } from "@/components/ui/response";
 import { ShimmeringText } from "@/components/ui/shimmering-text";
-import { Answer, Profile, ProgressEvent, chat, upload } from "@/lib/api";
+import { Answer, LocationChart as LocationChartData, Profile, ProgressEvent, chat, upload } from "@/lib/api";
 
 type Turn = { role: "user" | "assistant"; text: string; detail?: Answer; process?: ProgressEvent[] };
 
@@ -25,6 +25,31 @@ function Evidence({ detail }: { detail: Answer }) {
     {detail.execution_evidence.length > 0 && <div className="tool-output"><small>Compact execution output</small>{detail.execution_evidence.map((x, i) => <p key={i}>{x}</p>)}</div>}
     {detail.daily_usage && <p className="usage-note">PitchQuery usage today: {detail.daily_usage.tokens.toLocaleString()} / {detail.daily_usage.limit.toLocaleString()} reported tokens</p>}
   </Collapsible.Content></Collapsible.Root>;
+}
+
+function StrikeZone({ chart }: { chart: LocationChartData }) {
+  const series = [...new Set(chart.points.map(point => point.series))]; const [hidden, setHidden] = useState<string[]>([]);
+  const colors = ["#c7f55b", "#5bbcff", "#ffad5b", "#ef7197", "#a78bfa", "#58d6b0", "#f1dc62", "#d7dde0"];
+  const left = 54, top = 24, width = 442, height = 354;
+  const x = (value: number) => left + (value + 2.5) / 5 * width; const y = (value: number) => top + (5 - value) / 5 * height;
+  const plotted = chart.points.filter(point => point.plate_x >= -2.5 && point.plate_x <= 2.5 && point.plate_z >= 0 && point.plate_z <= 5);
+  const legendTitle = chart.legend_title.replace("TaggedPitchType", "Pitch type").replace("AutoPitchType", "Pitch type").replace("PitchCall", "Pitch outcome");
+  function toggle(name: string) { setHidden(items => items.includes(name) ? items.filter(item => item !== name) : [...items, name]); }
+  return <section className="strike-chart"><div className="strike-chart-head"><div><span>LOCATION MAP</span><h3>{chart.title}</h3></div><small>{plotted.length} plotted pitches</small></div>
+    <svg className="strike-zone" viewBox="0 0 520 430" role="img" aria-label={`${chart.title}. ${plotted.length} pitch locations.`}><title>{chart.title}</title><desc>Pitch locations relative to a reference strike zone. Horizontal location is in feet and height is in feet.</desc>
+      <rect className="zone-frame" x={left} y={top} width={width} height={height}/>
+      {[1,2,3,4].map(tick => <g className="zone-axis" key={`y-${tick}`}><line x1={left} x2={left + width} y1={y(tick)} y2={y(tick)}/><text x={left - 10} y={y(tick) + 4} textAnchor="end">{tick}</text></g>)}
+      {[-2,-1,0,1,2].map(tick => <g className="zone-axis" key={`x-${tick}`}><line x1={x(tick)} x2={x(tick)} y1={top} y2={top + height}/><text x={x(tick)} y={top + height + 20} textAnchor="middle">{tick}</text></g>)}
+      <rect className="zone-box" x={x(-.83)} y={y(3.5)} width={x(.83)-x(-.83)} height={y(1.5)-y(3.5)}/>
+      <text className="zone-label" x={x(0)} y={y(3.5)-8} textAnchor="middle">REFERENCE ZONE</text>
+      {[-.277,.277].map(value => <line className="zone-cell" key={`zx-${value}`} x1={x(value)} x2={x(value)} y1={y(3.5)} y2={y(1.5)}/>)}
+      {[2.167,2.833].map(value => <line className="zone-cell" key={`zy-${value}`} x1={x(-.83)} x2={x(.83)} y1={y(value)} y2={y(value)}/>)}
+      <path className="home-plate" d={`M ${x(-.38)} ${y(.3)} L ${x(.38)} ${y(.3)} L ${x(.48)} ${y(.12)} L ${x(0)} ${y(0)} L ${x(-.48)} ${y(.12)} Z`}/>
+      {plotted.filter(point => !hidden.includes(point.series)).map((point, index) => <circle className="pitch-dot" key={index} cx={x(point.plate_x)} cy={y(point.plate_z)} r="4.2" fill={colors[series.indexOf(point.series) % colors.length]}><title>{point.series}{point.label ? ` · ${point.label}` : ""} · x {point.plate_x.toFixed(2)}, z {point.plate_z.toFixed(2)}</title></circle>)}
+      <text className="axis-label" x={left + width / 2} y="425" textAnchor="middle">Horizontal plate location (ft)</text><text className="axis-label" transform={`translate(14 ${top + height / 2}) rotate(-90)`} textAnchor="middle">Height (ft)</text>
+    </svg>
+    <div className="zone-legend"><span>{legendTitle}</span>{series.map((name, index) => <button type="button" aria-pressed={!hidden.includes(name)} key={name} onClick={() => toggle(name)}><i style={{background:colors[index % colors.length]}}/>{name}</button>)}</div>
+  </section>;
 }
 
 function Roster({ profile }: { profile: Profile }) {
@@ -66,9 +91,9 @@ export default function Home() {
   const pitcher = dataset?.profile.pitcher_aliases["1000036206"] ?? dataset?.profile.pitcher_names[0] ?? "pitcher 1000036206";
   const batter = dataset?.profile.batter_aliases["8886045"] ?? dataset?.profile.batter_names[0] ?? "batter 8886045";
   const examples = [
-    ["0–2 slider usage", `For ${pitcher}, what percentage of pitches in 0-2 counts are sliders?`],
-    ["Next-pitch sequence", `After ${pitcher} throws a fastball for a called strike, what comes next, split by batter handedness?`],
-    ["Batter contact profile", `For ${batter}, compare average exit velocity by pitch type and tell me which sample is largest.`]
+    ["0–2 pitch map", `Show ${pitcher}'s pitch locations in 0-2 counts, colored by pitch type.`],
+    ["Whiff locations", `Where does ${pitcher} get swings and misses? Render the strike zone and color by pitch type.`],
+    ["Contact locations", `Show where pitches to ${batter} were put in play, colored by pitch outcome.`]
   ];
 
   return <main>
@@ -81,7 +106,7 @@ export default function Home() {
     <section className="chat-card"><div className="chat-head"><div><span className="eyebrow">SCOUTING CONSOLE</span><h2>Interrogate the pitch data.</h2></div>{dataset && <div className="chat-tools"><span className="ready"><i/> Dataset ready</span><button className="new-chat" onClick={reset}><Plus size={14}/> New thread</button></div>}</div>
       <Conversation className="conversation"><ConversationContent className="conversation-content">
         {!turns.length ? <ConversationEmptyState title={dataset ? "What do you want to know?" : "Load a CSV to begin"} description={dataset ? "Try a count, sequence, usage, location, or velocity question." : "PitchQuery profiles the file before allowing analysis."}><div className="examples">{examples.map(([label, question]) => <button key={label} onClick={() => ask(question)} disabled={!dataset}><b>{label}</b><span>{question}</span></button>)}</div></ConversationEmptyState> : turns.map((turn, i) => <Message from={turn.role} key={i}><MessageContent variant={turn.role === "assistant" ? "flat" : "contained"}>
-          {turn.role === "assistant" ? <><Response>{turn.text}</Response>{turn.process?.length ? <ProcessTimeline steps={turn.process}/>: null}{turn.detail?.chart_file && <div className="result-block"><div className="result-title"><BarChart3 size={15}/> Generated chart</div><img className="chart" src={turn.detail.chart_file} alt="Generated analysis chart" /></div>}{turn.detail && <Evidence detail={turn.detail}/>}</> : turn.text}
+          {turn.role === "assistant" ? <><Response>{turn.text}</Response>{turn.detail?.location_chart && <StrikeZone chart={turn.detail.location_chart} />}{turn.process?.length ? <ProcessTimeline steps={turn.process}/>: null}{turn.detail && <Evidence detail={turn.detail}/>}</> : turn.text}
         </MessageContent></Message>)}
         {busy && dataset && <Message from="assistant"><MessageContent variant="flat">{process.length ? <ProcessTimeline steps={process} live/> : <div className="progress"><i/><div><ShimmeringText text="Starting the analysis loop"/><small>Waiting for the first backend event.</small></div></div>}</MessageContent></Message>}
       </ConversationContent><ConversationScrollButton /></Conversation>
