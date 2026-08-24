@@ -41,11 +41,10 @@ def test_location_chart_supports_dynamic_color_and_shape_features():
 
 
 def test_location_prompt_requires_partial_data_degradation():
-    assert "drop only" in ANALYST_SYSTEM_PROMPT
-    assert "never emit an invalid plate_x or plate_z" in ANALYST_SYSTEM_PROMPT
-    assert "at most 80 deterministic representative points" in ANALYST_SYSTEM_PROMPT
-    assert "plotted P of N pitches with valid locations from T matching pitches" in ANALYST_SYSTEM_PROMPT
-    assert '"Hit" means InPlay plus Single, Double, Triple, or HomeRun' in ANALYST_SYSTEM_PROMPT
+    assert "call\nbuild_pitch_chart exactly once" in ANALYST_SYSTEM_PROMPT
+    assert "includes every matching" in ANALYST_SYSTEM_PROMPT
+    assert "do not sample" in ANALYST_SYSTEM_PROMPT
+    assert "raw StrikeSwinging value (a whiff)" in ANALYST_SYSTEM_PROMPT
 
 
 

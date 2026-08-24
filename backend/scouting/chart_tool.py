@@ -1,0 +1,111 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any, Literal
+
+import numpy as np
+import pandas as pd
+from langchain_core.tools import tool
+from pydantic import BaseModel, Field
+
+from .schemas import ChartEncoding, ChartFeature, LocationChart, LocationPoint
+
+
+class PitchFilter(BaseModel):
+    column: str
+    operator: Literal["eq", "ne", "gt", "gte", "lt", "lte", "in"] = "eq"
+    value: str | list[str]
+
+
+class PitchChartInput(BaseModel):
+    request_id: str
+    filters: list[PitchFilter] = Field(default_factory=list)
+    color_by: str | None = None
+    shape_by: str | None = None
+    title: str = "Pitch locations"
+
+
+def _outcome(frame: pd.DataFrame) -> pd.Series:
+    calls = frame["PitchCall"].fillna("").astype(str)
+    result = calls.map({
+        "BallCalled": "Ball", "BallinDirt": "Ball in dirt", "StrikeCalled": "Called strike",
+        "StrikeSwinging": "Swinging strike", "FoulBall": "Foul", "HitByPitch": "Hit by pitch",
+    }).fillna("Other")
+    if "PlayResult" in frame:
+        hits = calls.eq("InPlay") & frame["PlayResult"].isin(["Single", "Double", "Triple", "HomeRun"])
+        result = result.mask(hits, "Hit").mask(calls.eq("InPlay") & ~hits, "In play out")
+    return result
+
+
+def _feature(frame: pd.DataFrame, name: str) -> pd.Series:
+    if name == "Outcome":
+        return _outcome(frame)
+    if name == "Count" and {"Balls", "Strikes"}.issubset(frame.columns):
+        return frame["Balls"].fillna("?").astype(str) + "-" + frame["Strikes"].fillna("?").astype(str)
+    if name not in frame:
+        raise ValueError(f"Column {name!r} is not available.")
+    return frame[name].fillna("Unknown").astype(str)
+
+
+def _filtered(frame: pd.DataFrame, filters: list[PitchFilter]) -> pd.DataFrame:
+    keep = pd.Series(True, index=frame.index)
+    for item in filters:
+        if item.column not in frame:
+            raise ValueError(f"Column {item.column!r} is not available.")
+        series = frame[item.column]
+        values = item.value if isinstance(item.value, list) else [item.value]
+        if item.operator in {"gt", "gte", "lt", "lte"}:
+            numeric = pd.to_numeric(series, errors="coerce")
+            target = float(values[0])
+            match = {"gt": numeric.gt, "gte": numeric.ge, "lt": numeric.lt, "lte": numeric.le}[item.operator](target)
+        else:
+            lowered = series.fillna("").astype(str).str.casefold()
+            targets = [str(value).casefold() for value in values]
+            match = lowered.isin(targets)
+            if item.operator == "ne":
+                match = ~match
+            elif item.operator not in {"eq", "in"}:
+                raise ValueError(f"Operator {item.operator!r} is not supported.")
+        keep &= match.fillna(False)
+    return frame.loc[keep].copy()
+
+
+def create_pitch_chart_tool(path: Path, cache: dict[str, dict[str, Any]]):
+    @tool(args_schema=PitchChartInput)
+    def build_pitch_chart(request_id: str, filters: list[PitchFilter], color_by: str | None = None,
+                          shape_by: str | None = None, title: str = "Pitch locations") -> str:
+        """Build a complete pitch-location chart from exact dataset filters. Use exact CSV columns in filters.
+        color_by and shape_by accept source columns plus derived Outcome and Count. Every matching pitch with a
+        numeric PlateLocSide and PlateLocHeight is included; the model must not create or serialize chart points.
+        """
+        try:
+            frame = _filtered(pd.read_csv(path, low_memory=False), filters)
+            x = pd.to_numeric(frame["PlateLocSide"], errors="coerce")
+            z = pd.to_numeric(frame["PlateLocHeight"], errors="coerce")
+            located = frame.loc[x.notna() & z.notna() & np.isfinite(x) & np.isfinite(z)].copy()
+            located["_plate_x"] = x.loc[located.index]
+            located["_plate_z"] = z.loc[located.index]
+            features = [name for name in (color_by, shape_by) if name]
+            values = {name: _feature(located, name) for name in features}
+            points = [LocationPoint(
+                plate_x=row["_plate_x"], plate_z=row["_plate_z"],
+                features=[ChartFeature(name=name, value=values[name].loc[index]) for name in features],
+                label=f"Pitch {int(row['_source_row_id']) + 1}" if "_source_row_id" in located else "",
+            ) for index, row in located.iterrows()]
+            if not points:
+                return json.dumps({"error": "No matching pitches have numeric plate locations.",
+                                   "matching_pitches": len(frame)})
+            labels = {"TaggedPitchType": "Pitch type", "Outcome": "Outcome", "Count": "Count"}
+            encodings = [ChartEncoding(feature=name, channel=channel, label=labels.get(name, name))
+                         for name, channel in ((color_by, "color"), (shape_by, "shape")) if name]
+            chart = LocationChart(title=title, encodings=encodings, points=points)
+            counts = {name: values[name].value_counts().to_dict() for name in features}
+            summary = {"matching_pitches": len(frame), "valid_location_pitches": len(points),
+                       "missing_location_pitches": len(frame) - len(points), "feature_counts": counts}
+            cache[request_id] = {"chart": chart, "summary": summary}
+            return json.dumps(summary)
+        except (KeyError, TypeError, ValueError) as exc:
+            return json.dumps({"error": str(exc)})
+
+    return build_pitch_chart

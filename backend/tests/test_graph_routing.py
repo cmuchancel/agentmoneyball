@@ -55,7 +55,7 @@ def test_repair_prompt_reuses_successful_previous_packet():
                               "gate_feedback": "make the summary explicit",
                               "analysis_packet": prior}, {"rows": 4})
     assert prompt["previous_attempt"] == prior
-    assert "preserve its executed evidence and chart" in prompt["instruction"]
+    assert "backend attaches and preserves" in prompt["instruction"]
 
 
 def test_gate_cannot_answer_repairs_an_incomplete_successful_packet():
@@ -79,7 +79,7 @@ def test_validation_feedback_reaches_second_attempt():
         return packet.model_copy(update={"executed_code": []}) if len(seen) == 1 else packet
     result = invoke(build_graph(run, lambda state: GateVerdict(verdict="pass", reason="complete")))
     assert result["analysis_attempt"] == 2
-    assert "successful analysis requires executed code" in seen[1]
+    assert "verified tool call or executed code" in seen[1]
 
 
 def test_attempt_limit_stops_failures():

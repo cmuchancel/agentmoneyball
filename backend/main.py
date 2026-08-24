@@ -104,13 +104,13 @@ def chat(request: ChatRequest):
         yield json.dumps({"type": "progress", "stage": "Question received", "detail":
                           f"Working with {profile.rows:,} pitches across {profile.columns} fields.", "status": "complete"}) + "\n"
         if request.dataset_id not in graphs:
-            yield json.dumps({"type": "progress", "stage": "Preparing the dataset", "detail":
-                              "Uploading one prepared CSV to an isolated Code Interpreter session.", "status": "active"}) + "\n"
+            yield json.dumps({"type": "progress", "stage": "Preparing the dataset tools", "detail":
+                              "Loading the prepared CSV into the analysis workspace.", "status": "active"}) + "\n"
             file_id = OpenAI().files.create(file=data["path"].open("rb"), purpose="assistants").id
-            runner, gate = live_services(file_id, profile_for_prompt(profile))
+            runner, gate = live_services(file_id, data["path"], profile_for_prompt(profile))
             graphs[request.dataset_id] = build_graph(runner, gate)
-            yield json.dumps({"type": "progress", "stage": "Dataset ready for analysis", "detail":
-                              "The analyst can now inspect columns and execute Pandas code.", "status": "complete"}) + "\n"
+            yield json.dumps({"type": "progress", "stage": "Dataset tools ready", "detail":
+                              "The analyst can query pitch data and build complete charts without generating code.", "status": "complete"}) + "\n"
         graph = graphs[request.dataset_id]
         for mode, update in graph.stream(state, stream_mode=["custom", "updates"]):
             if mode == "custom":

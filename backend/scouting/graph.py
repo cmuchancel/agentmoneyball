@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import uuid
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
@@ -14,8 +15,9 @@ from langchain_openai import ChatOpenAI
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 
+from .chart_tool import create_pitch_chart_tool
 from .prompts import ANALYST_SYSTEM_PROMPT, GATE_SYSTEM_PROMPT
-from .schemas import AnalysisPacket, AnalysisState, GateVerdict, deterministic_checks
+from .schemas import AnalysisPacket, AnalysisState, GateVerdict, LocationChart, deterministic_checks
 
 MAX_ATTEMPTS = 3
 Runner = Callable[[AnalysisState], AnalysisPacket]
@@ -69,13 +71,18 @@ def daily_usage_snapshot() -> dict[str, int | str]:
 
 def analysis_prompt(state: AnalysisState, profile: dict[str, Any]) -> dict[str, Any]:
     feedback = state.get("gate_feedback", "")
+    previous = state.get("analysis_packet") if feedback else None
+    if previous and previous.get("location_chart"):
+        chart = previous["location_chart"]
+        previous = {**previous, "location_chart": {"title": chart["title"],
+                    "encodings": chart["encodings"], "point_count": len(chart["points"])}}
     return {
         "question": state["question"],
         "dataset_profile": profile,
         "recent_conversation": state.get("messages", [])[-6:],
         "gate_feedback": feedback,
-        "previous_attempt": state.get("analysis_packet") if feedback else None,
-        "instruction": "Use Python for new analysis. If a successful previous attempt only needs wording or metadata repaired, preserve its executed evidence and chart and edit only the requested fields.",
+        "previous_attempt": previous,
+        "instruction": "Use build_pitch_chart for location maps and Python only for other new analysis. The backend attaches and preserves tool-built chart points, so never serialize them.",
     }
 
 
@@ -90,16 +97,18 @@ def _text(packet: AnalysisPacket) -> str:
     return answer + (f"\n\n**Caution:** {'; '.join(packet.warnings)}" if packet.warnings else "")
 
 
-def live_services(file_id: str, profile: dict[str, Any]) -> tuple[Runner, Gate]:
+def live_services(file_id: str, path: Path, profile: dict[str, Any]) -> tuple[Runner, Gate]:
     """Create the only two model calls: analyst agent and semantic gate."""
     model_name = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
     callback = UsageCallback()
     model = ChatOpenAI(model=model_name, use_responses_api=True, temperature=0,
                        reasoning_effort="low", max_tokens=16000, callbacks=[callback],
                        extra_body={"max_tool_calls": 6})
+    chart_cache: dict[str, dict[str, Any]] = {}
+    chart_tool = create_pitch_chart_tool(path, chart_cache)
     analyst = create_agent(
         model=model,
-        tools=[{"type": "code_interpreter", "container": {"type": "auto", "file_ids": [file_id]}}],
+        tools=[chart_tool, {"type": "code_interpreter", "container": {"type": "auto", "file_ids": [file_id]}}],
         system_prompt=ANALYST_SYSTEM_PROMPT,
         response_format=AnalysisPacket,
     )
@@ -109,19 +118,44 @@ def live_services(file_id: str, profile: dict[str, Any]) -> tuple[Runner, Gate]:
 
     def run(state: AnalysisState) -> AnalysisPacket:
         USAGE.ensure_capacity()
+        request_id = uuid.uuid4().hex
+        prompt = {**analysis_prompt(state, profile), "chart_request_id": request_id,
+                  "chart_instruction": "Pass chart_request_id unchanged to build_pitch_chart."}
         result = analyst.invoke(
-            {"messages": [{"role": "user", "content": json.dumps(analysis_prompt(state, profile), default=str)}]},
+            {"messages": [{"role": "user", "content": json.dumps(prompt, default=str)}]},
             config={"recursion_limit": 14},
         )
-        return AnalysisPacket.model_validate(result["structured_response"])
+        packet = AnalysisPacket.model_validate(result["structured_response"])
+        built = chart_cache.pop(request_id, None)
+        previous = state.get("analysis_packet", {})
+        prior_chart = previous.get("location_chart") if state.get("gate_feedback") and previous.get("status") == "success" else None
+        if built or prior_chart:
+            chart = built["chart"] if built else LocationChart.model_validate(prior_chart)
+            tools = ["build_pitch_chart", *(["python"] if packet.executed_code else [])]
+            evidence = packet.execution_evidence
+            updates: dict[str, Any] = {"location_chart": chart, "tools_used": tools}
+            if built:
+                summary = built["summary"]
+                evidence = [*evidence, "build_pitch_chart: " + json.dumps(summary)]
+                updates.update(sample_size=summary["matching_pitches"],
+                               coverage=f"Plotted all {summary['valid_location_pitches']} valid-location pitches "
+                                        f"from {summary['matching_pitches']} matching pitches; "
+                                        f"{summary['missing_location_pitches']} lacked a usable location.")
+            packet = packet.model_copy(update={"execution_evidence": evidence, **updates})
+        return packet
 
     def gate(state: AnalysisState) -> GateVerdict:
         USAGE.ensure_capacity()
         packet = AnalysisPacket.model_validate(state["analysis_packet"])
+        payload = packet.model_dump()
+        if packet.location_chart:
+            payload["location_chart"] = {"title": packet.location_chart.title,
+                "encodings": [encoding.model_dump() for encoding in packet.location_chart.encodings],
+                "point_count": len(packet.location_chart.points)}
         return gate_model.invoke(
             [
                 ("system", GATE_SYSTEM_PROMPT),
-                ("user", json.dumps({"question": state["question"], "packet": packet.model_dump()})),
+                ("user", json.dumps({"question": state["question"], "packet": payload})),
             ]
         )
 
@@ -144,7 +178,7 @@ def build_graph(run: Runner, gate: Gate):
         repairing = state.get("analysis_packet", {}).get("status") == "success" and bool(state.get("gate_feedback"))
         report("Repairing the verified result" if repairing else "Analyzing the pitch data",
                f"Attempt {attempt} of {MAX_ATTEMPTS}: preserving the executed chart and correcting the requested fields."
-               if repairing else f"Attempt {attempt} of {MAX_ATTEMPTS}: inspecting columns, choosing filters, and running Python.", attempt)
+               if repairing else f"Attempt {attempt} of {MAX_ATTEMPTS}: choosing filters and calling the dataset tools.", attempt)
         error = ""
         try:
             packet = run({**state, "analysis_attempt": attempt})
@@ -159,6 +193,9 @@ def build_graph(run: Runner, gate: Gate):
                 execution_evidence=[],
             )
         packet_error = error or (packet.warnings[0] if packet.status == "error" and packet.warnings else "")
+        if packet.location_chart and "build_pitch_chart" in packet.tools_used:
+            report("Pitch map assembled", f"Loaded all {len(packet.location_chart.points):,} valid pitch locations from the dataset.",
+                   attempt, "complete")
         report("Analysis attempt failed" if packet_error else "Analysis attempt complete",
                short(packet_error) if packet_error else f"Attempt {attempt} returned a structured result for verification.",
                attempt, "revise" if packet_error else "complete")

@@ -5,7 +5,7 @@ export type Profile = { dataset_id: string; file_name: string; rows: number; col
 export type Answer = { status: string; answer: string; filters: string[]; metric_definitions: string[];
   method: string; sample_size?: number | null; chart_file?: string; location_chart?: LocationChart | null;
   coverage: string; warnings: string[]; executed_code: string[];
-  execution_evidence: string[]; daily_usage?: {date: string; tokens: number; limit: number; remaining: number} };
+  tools_used?: string[]; execution_evidence: string[]; daily_usage?: {date: string; tokens: number; limit: number; remaining: number} };
 export type ProgressEvent = { stage: string; detail?: string; attempt?: number; status?: "active" | "complete" | "revise" | "stopped" };
 export type LocationChart = { title: string;
   encodings: {feature: string; channel: "color" | "shape"; label: string}[];

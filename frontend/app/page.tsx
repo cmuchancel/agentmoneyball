@@ -21,6 +21,7 @@ function ProcessTimeline({ steps, live = false }: { steps: ProgressEvent[]; live
 function Evidence({ detail }: { detail: Answer }) {
   return <Collapsible.Root className="evidence-root"><Collapsible.Trigger className="evidence-trigger"><Code2 size={14} /> Show analysis evidence <ChevronDown size={14} /></Collapsible.Trigger><Collapsible.Content className="evidence">
     <div className="evidence-grid"><div><span><Database size={13}/> Method</span><p>{detail.method}</p></div><div><span><BarChart3 size={13}/> Sample &amp; coverage</span><p>{detail.sample_size == null ? "Sample not applicable" : `n=${detail.sample_size.toLocaleString()}`} · {detail.coverage}</p></div><div><span><Filter size={13}/> Filters</span><ul>{detail.filters.length ? detail.filters.map(x => <li key={x}>{x}</li>) : <li>None</li>}</ul></div><div><span><Check size={13}/> Definitions</span><ul>{detail.metric_definitions.length ? detail.metric_definitions.map(x => <li key={x}>{x}</li>) : <li>No special definitions</li>}</ul></div></div>
+    {detail.tools_used?.length ? <div className="tool-output"><small>Verified data tools</small><p>{detail.tools_used.join(" · ")}</p></div> : null}
     {detail.executed_code.map((code, i) => <div key={i}><small>Executed Pandas code</small><pre><code>{code}</code></pre></div>)}
     {detail.execution_evidence.length > 0 && <div className="tool-output"><small>Compact execution output</small>{detail.execution_evidence.map((x, i) => <p key={i}>{x}</p>)}</div>}
     {detail.daily_usage && <p className="usage-note">PitchQuery usage today: {detail.daily_usage.tokens.toLocaleString()} / {detail.daily_usage.limit.toLocaleString()} reported tokens</p>}
@@ -31,8 +32,14 @@ function StrikeZone({ chart }: { chart: LocationChartData }) {
   const [hidden, setHidden] = useState<string[]>([]);
   const colors = ["#c7f55b", "#5bbcff", "#ffad5b", "#ef7197", "#a78bfa", "#58d6b0", "#f1dc62", "#d7dde0"];
   const left = 54, top = 24, width = 442, height = 354;
-  const x = (value: number) => left + (value + 2.5) / 5 * width; const y = (value: number) => top + (5 - value) / 5 * height;
-  const plotted = chart.points.filter(point => point.plate_x >= -2.5 && point.plate_x <= 2.5 && point.plate_z >= 0 && point.plate_z <= 5);
+  const plotted = chart.points.filter(point => Number.isFinite(point.plate_x) && Number.isFinite(point.plate_z));
+  const xMin = Math.min(-2.5, Math.floor(Math.min(...plotted.map(point => point.plate_x)) * 2) / 2);
+  const xMax = Math.max(2.5, Math.ceil(Math.max(...plotted.map(point => point.plate_x)) * 2) / 2);
+  const zMin = Math.min(0, Math.floor(Math.min(...plotted.map(point => point.plate_z)) * 2) / 2);
+  const zMax = Math.max(5, Math.ceil(Math.max(...plotted.map(point => point.plate_z)) * 2) / 2);
+  const x = (value: number) => left + (value - xMin) / (xMax - xMin) * width; const y = (value: number) => top + (zMax - value) / (zMax - zMin) * height;
+  const ticks = (min: number, max: number) => Array.from({length: 6}, (_, index) => min + (max - min) * index / 5);
+  const tickLabel = (value: number) => Number.isInteger(value) ? value : value.toFixed(1);
   const value = (point: LocationChartData["points"][number], feature: string) => point.features.find(item => item.name === feature)?.value ?? "Unknown";
   const categories = (feature: string) => [...new Set(plotted.map(point => value(point, feature)))];
   const colorEncoding = chart.encodings.find(item => item.channel === "color"); const shapeEncoding = chart.encodings.find(item => item.channel === "shape");
@@ -53,8 +60,8 @@ function StrikeZone({ chart }: { chart: LocationChartData }) {
   return <section className="strike-chart"><div className="strike-chart-head"><div><span>LOCATION MAP</span><h3>{chart.title}</h3></div><small>{plotted.length} plotted pitches</small></div>
     <svg className="strike-zone" viewBox="0 0 520 430" role="img" aria-label={`${chart.title}. ${plotted.length} pitch locations.`}><title>{chart.title}</title><desc>Pitch locations relative to a reference strike zone. Color and shape encode the requested pitch features.</desc>
       <rect className="zone-frame" x={left} y={top} width={width} height={height}/>
-      {[1,2,3,4].map(tick => <g className="zone-axis" key={`y-${tick}`}><line x1={left} x2={left + width} y1={y(tick)} y2={y(tick)}/><text x={left - 10} y={y(tick) + 4} textAnchor="end">{tick}</text></g>)}
-      {[-2,-1,0,1,2].map(tick => <g className="zone-axis" key={`x-${tick}`}><line x1={x(tick)} x2={x(tick)} y1={top} y2={top + height}/><text x={x(tick)} y={top + height + 20} textAnchor="middle">{tick}</text></g>)}
+      {ticks(zMin, zMax).map(tick => <g className="zone-axis" key={`y-${tick}`}><line x1={left} x2={left + width} y1={y(tick)} y2={y(tick)}/><text x={left - 10} y={y(tick) + 4} textAnchor="end">{tickLabel(tick)}</text></g>)}
+      {ticks(xMin, xMax).map(tick => <g className="zone-axis" key={`x-${tick}`}><line x1={x(tick)} x2={x(tick)} y1={top} y2={top + height}/><text x={x(tick)} y={top + height + 20} textAnchor="middle">{tickLabel(tick)}</text></g>)}
       <rect className="zone-box" x={x(-.83)} y={y(3.5)} width={x(.83)-x(-.83)} height={y(1.5)-y(3.5)}/>
       <text className="zone-label" x={x(0)} y={y(3.5)-8} textAnchor="middle">REFERENCE ZONE</text>
       {[-.277,.277].map(value => <line className="zone-cell" key={`zx-${value}`} x1={x(value)} x2={x(value)} y1={y(3.5)} y2={y(1.5)}/>)}
@@ -128,6 +135,6 @@ export default function Home() {
       {error && <p className="error">{error}</p>}
       <form onSubmit={submit}><input aria-label="Question" value={input} onChange={e => setInput(e.target.value)} placeholder={dataset ? "Ask about counts, sequences, movement, location…" : "Load a dataset to begin"} disabled={!dataset || busy}/><button aria-label="Send" disabled={!dataset || busy || !input.trim()}><Send size={18}/></button></form>
     </section>
-    <footer>PITCHQUERY / TRACKMAN SCOUTING / EXECUTED PANDAS EVIDENCE</footer>
+    <footer>PITCHQUERY / TRACKMAN SCOUTING / VERIFIED DATA TOOLS</footer>
   </main>;
 }

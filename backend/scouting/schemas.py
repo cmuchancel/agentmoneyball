@@ -44,7 +44,7 @@ class LocationPoint(BaseModel):
 class LocationChart(BaseModel):
     title: str
     encodings: list[ChartEncoding] = Field(default_factory=list, max_length=2)
-    points: list[LocationPoint] = Field(min_length=1, max_length=250)
+    points: list[LocationPoint] = Field(min_length=1)
 
 
 class AnalysisPacket(BaseModel):
@@ -63,6 +63,7 @@ class AnalysisPacket(BaseModel):
     chart_file: str | None = None
     coverage: str
     warnings: list[str] = Field(default_factory=list)
+    tools_used: list[str] = Field(default_factory=list)
     executed_code: list[str] = Field(default_factory=list)
     execution_evidence: list[str] = Field(default_factory=list)
     missing_fields: list[str] = Field(default_factory=list)
@@ -121,8 +122,8 @@ def deterministic_checks(packet: AnalysisPacket, question: str = "") -> list[str
     if packet.status != "success":
         errors.append(f"analysis status is {packet.status}")
         return errors
-    if not packet.executed_code or not packet.execution_evidence:
-        errors.append("successful analysis requires executed code and execution evidence")
+    if not (packet.executed_code or packet.tools_used) or not packet.execution_evidence:
+        errors.append("successful analysis requires a verified tool call or executed code and evidence")
     if not packet.metrics and not packet.result_table:
         errors.append("successful analysis has no result")
     for metric in packet.metrics:
