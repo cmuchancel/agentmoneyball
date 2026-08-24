@@ -67,6 +67,18 @@ def daily_usage_snapshot() -> dict[str, int | str]:
     return USAGE.snapshot()
 
 
+def analysis_prompt(state: AnalysisState, profile: dict[str, Any]) -> dict[str, Any]:
+    feedback = state.get("gate_feedback", "")
+    return {
+        "question": state["question"],
+        "dataset_profile": profile,
+        "recent_conversation": state.get("messages", [])[-6:],
+        "gate_feedback": feedback,
+        "previous_attempt": state.get("analysis_packet") if feedback else None,
+        "instruction": "Use Python for new analysis. If a successful previous attempt only needs wording or metadata repaired, preserve its executed evidence and chart and edit only the requested fields.",
+    }
+
+
 def _text(packet: AnalysisPacket) -> str:
     def metric_text(m) -> str:
         value = f"{m.value:.2f}".rstrip("0").rstrip(".") if isinstance(m.value, float) else str(m.value)
@@ -97,15 +109,8 @@ def live_services(file_id: str, profile: dict[str, Any]) -> tuple[Runner, Gate]:
 
     def run(state: AnalysisState) -> AnalysisPacket:
         USAGE.ensure_capacity()
-        prompt = {
-            "question": state["question"],
-            "dataset_profile": profile,
-            "recent_conversation": state.get("messages", [])[-6:],
-            "gate_feedback": state.get("gate_feedback", ""),
-            "instruction": "Use the python tool on the uploaded CSV. Maximum six tool calls and three repairs.",
-        }
         result = analyst.invoke(
-            {"messages": [{"role": "user", "content": json.dumps(prompt, default=str)}]},
+            {"messages": [{"role": "user", "content": json.dumps(analysis_prompt(state, profile), default=str)}]},
             config={"recursion_limit": 14},
         )
         return AnalysisPacket.model_validate(result["structured_response"])
@@ -136,7 +141,10 @@ def build_graph(run: Runner, gate: Gate):
 
     def run_analysis(state: AnalysisState) -> dict[str, Any]:
         attempt = state.get("analysis_attempt", 0) + 1
-        report("Analyzing the pitch data", f"Attempt {attempt} of {MAX_ATTEMPTS}: inspecting columns, choosing filters, and running Python.", attempt)
+        repairing = state.get("analysis_packet", {}).get("status") == "success" and bool(state.get("gate_feedback"))
+        report("Repairing the verified result" if repairing else "Analyzing the pitch data",
+               f"Attempt {attempt} of {MAX_ATTEMPTS}: preserving the executed chart and correcting the requested fields."
+               if repairing else f"Attempt {attempt} of {MAX_ATTEMPTS}: inspecting columns, choosing filters, and running Python.", attempt)
         error = ""
         try:
             packet = run({**state, "analysis_attempt": attempt})
@@ -150,9 +158,10 @@ def build_graph(run: Runner, gate: Gate):
                 warnings=["OpenAI rejected the configured model or credentials. Check project model access and API billing." if access_error else error],
                 execution_evidence=[],
             )
-        report("Analysis attempt failed" if error else "Analysis attempt complete",
-               short(error) if error else f"Attempt {attempt} returned a structured result for verification.",
-               attempt, "revise" if error else "complete")
+        packet_error = error or (packet.warnings[0] if packet.status == "error" and packet.warnings else "")
+        report("Analysis attempt failed" if packet_error else "Analysis attempt complete",
+               short(packet_error) if packet_error else f"Attempt {attempt} returned a structured result for verification.",
+               attempt, "revise" if packet_error else "complete")
         return {"analysis_attempt": attempt, "analysis_packet": packet.model_dump(), "gate_verdict": {}}
 
     def check_result(state: AnalysisState) -> dict[str, Any]:
@@ -161,7 +170,8 @@ def build_graph(run: Runner, gate: Gate):
         result: dict[str, Any] = {"deterministic_errors": errors}
         if errors:
             result["gate_feedback"] = "Fix these validation errors: " + "; ".join(errors)
-            report("Integrity check requested a revision", errors[0], state["analysis_attempt"], "revise")
+            detail = packet.warnings[0] if packet.status == "error" and packet.warnings else errors[0]
+            report("Integrity check requested a revision", short(detail), state["analysis_attempt"], "revise")
         else:
             report("Integrity checks passed", "Executed evidence and hard arithmetic checks are internally consistent.", state["analysis_attempt"], "complete")
         return result

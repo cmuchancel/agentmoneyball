@@ -1,4 +1,4 @@
-from scouting.graph import build_graph
+from scouting.graph import analysis_prompt, build_graph
 from scouting.schemas import AnalysisPacket, GateVerdict, Metric
 
 
@@ -47,6 +47,15 @@ def test_revision_feedback_reaches_second_attempt():
     result = invoke(build_graph(run, gate))
     assert result["analysis_attempt"] == 2
     assert seen == ["", "split by side"]
+
+
+def test_repair_prompt_reuses_successful_previous_packet():
+    prior = good_packet().model_dump()
+    prompt = analysis_prompt({"question": "show his locations", "messages": [],
+                              "gate_feedback": "make the summary explicit",
+                              "analysis_packet": prior}, {"rows": 4})
+    assert prompt["previous_attempt"] == prior
+    assert "preserve its executed evidence and chart" in prompt["instruction"]
 
 
 def test_gate_cannot_answer_repairs_an_incomplete_successful_packet():
@@ -99,7 +108,8 @@ def test_progress_stream_explains_revision_and_success():
     stages = [event["stage"] for event in events]
     assert "Evidence review requested a revision" in stages
     assert "Evidence review passed" in stages
-    assert [event["attempt"] for event in events if event["stage"] == "Analyzing the pitch data"] == [1, 2]
+    assert [event["attempt"] for event in events if event["stage"] == "Analyzing the pitch data"] == [1]
+    assert [event["attempt"] for event in events if event["stage"] == "Repairing the verified result"] == [2]
     assert all(event.get("detail") for event in events)
 
 
@@ -133,3 +143,13 @@ def test_progress_stream_exposes_analysis_exception():
     failures = [event for event in events if event["stage"] == "Analysis attempt failed"]
     assert len(failures) == 3
     assert failures[0]["detail"] == "tool execution exploded"
+
+
+def test_progress_stream_exposes_returned_error_packet():
+    failed = good_packet().model_copy(update={"status": "error", "metrics": [],
+                                              "warnings": ["Python could not read PlateLocSide"]})
+    events = progress_events(build_graph(lambda state: failed,
+                                          lambda state: GateVerdict(verdict="pass", reason="unused")))
+    failures = [event for event in events if event["stage"] == "Analysis attempt failed"]
+    assert len(failures) == 3
+    assert failures[0]["detail"] == "Python could not read PlateLocSide"
