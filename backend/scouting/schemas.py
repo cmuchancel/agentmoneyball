@@ -26,6 +26,9 @@ class Metric(BaseModel):
 class AnalysisPacket(BaseModel):
     status: Literal["success", "cannot_answer", "error"]
     question_interpreted: str
+    answer_summary: str = Field(
+        description="One to three natural-language sentences that directly answer the question; empty when no answer is possible."
+    )
     method: str
     filters: list[str] = Field(default_factory=list)
     metric_definitions: list[str] = Field(default_factory=list)

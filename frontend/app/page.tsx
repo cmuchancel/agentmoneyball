@@ -16,20 +16,16 @@ const examples = [
   ["Test a limitation", "How does pitcher 1000036206 perform with runners on first and third while trailing by one run?"]
 ];
 
-function ResultTable({ rows }: { rows: Record<string, unknown>[] }) {
-  const columns = Object.keys(rows[0] ?? {});
-  return <div className="result-block"><div className="result-title"><BarChart3 size={15} /> Result table</div><div className="table-wrap"><table><thead><tr>{columns.map(c => <th key={c}>{c}</th>)}</tr></thead><tbody>{rows.map((row, i) => <tr key={i}>{columns.map(c => <td key={c}>{String(row[c] ?? "—")}</td>)}</tr>)}</tbody></table></div></div>;
-}
-
 function ProcessTimeline({ steps, live = false }: { steps: ProgressEvent[]; live?: boolean }) {
-  return <div className="process-timeline"><div className="process-title"><Code2 size={14}/> {live ? "Live analysis loop" : "Analysis process"}</div>
-    {steps.map((step, index) => { const active = live && index === steps.length - 1 && step.status === "active"; const status = step.status === "active" && !active ? "complete" : step.status; return <div className="process-step" data-status={status} key={`${step.stage}-${index}`}><i/><div><b>{active ? <ShimmeringText text={step.stage}/> : step.stage}</b>{step.attempt && <small>Attempt {step.attempt} of 3</small>}<p>{step.detail}</p></div></div>; })}
-  </div>;
+  return <Collapsible.Root className="process-timeline" defaultOpen={live}>
+    <Collapsible.Trigger className="process-title"><span><Code2 size={14}/> {live ? "Live analysis loop" : "Analysis process"}</span><span className="process-toggle">Details <ChevronDown size={14}/></span></Collapsible.Trigger>
+    <Collapsible.Content>{steps.map((step, index) => { const active = live && index === steps.length - 1 && step.status === "active"; const status = step.status === "active" && !active ? "complete" : step.status; return <div className="process-step" data-status={status} key={`${step.stage}-${index}`}><i/><div><b>{active ? <ShimmeringText text={step.stage}/> : step.stage}</b>{step.attempt && <small>Attempt {step.attempt} of 3</small>}<p>{step.detail}</p></div></div>; })}</Collapsible.Content>
+  </Collapsible.Root>;
 }
 
 function Evidence({ detail }: { detail: Answer }) {
   return <Collapsible.Root className="evidence-root"><Collapsible.Trigger className="evidence-trigger"><Code2 size={14} /> Show analysis evidence <ChevronDown size={14} /></Collapsible.Trigger><Collapsible.Content className="evidence">
-    <div className="evidence-grid"><div><span><Filter size={13}/> Filters</span><ul>{detail.filters.length ? detail.filters.map(x => <li key={x}>{x}</li>) : <li>None</li>}</ul></div><div><span><Check size={13}/> Definitions</span><ul>{detail.metric_definitions.length ? detail.metric_definitions.map(x => <li key={x}>{x}</li>) : <li>No special definitions</li>}</ul></div></div>
+    <div className="evidence-grid"><div><span><Database size={13}/> Method</span><p>{detail.method}</p></div><div><span><BarChart3 size={13}/> Sample &amp; coverage</span><p>{detail.sample_size == null ? "Sample not applicable" : `n=${detail.sample_size.toLocaleString()}`} · {detail.coverage}</p></div><div><span><Filter size={13}/> Filters</span><ul>{detail.filters.length ? detail.filters.map(x => <li key={x}>{x}</li>) : <li>None</li>}</ul></div><div><span><Check size={13}/> Definitions</span><ul>{detail.metric_definitions.length ? detail.metric_definitions.map(x => <li key={x}>{x}</li>) : <li>No special definitions</li>}</ul></div></div>
     {detail.executed_code.map((code, i) => <div key={i}><small>Executed Pandas code</small><pre><code>{code}</code></pre></div>)}
     {detail.execution_evidence.length > 0 && <div className="tool-output"><small>Compact execution output</small>{detail.execution_evidence.map((x, i) => <p key={i}>{x}</p>)}</div>}
     {detail.daily_usage && <p className="usage-note">PitchQuery usage today: {detail.daily_usage.tokens.toLocaleString()} / {detail.daily_usage.limit.toLocaleString()} reported tokens</p>}
@@ -72,7 +68,7 @@ export default function Home() {
     <section className="chat-card"><div className="chat-head"><div><span className="eyebrow">SCOUTING CONVERSATION</span><h2>Ask the pitch data.</h2></div>{dataset && <span className="ready"><i/> Dataset ready</span>}</div>
       <Conversation className="conversation"><ConversationContent className="conversation-content">
         {!turns.length ? <ConversationEmptyState title={dataset ? "What do you want to know?" : "Load a CSV to begin"} description={dataset ? "Try a count, sequence, usage, location, or velocity question." : "PitchQuery profiles the file before allowing analysis."}><div className="examples">{examples.map(([label, question]) => <button key={label} onClick={() => ask(question)} disabled={!dataset}><b>{label}</b><span>{question}</span></button>)}</div></ConversationEmptyState> : turns.map((turn, i) => <Message from={turn.role} key={i}><MessageContent variant={turn.role === "assistant" ? "flat" : "contained"}>
-          {turn.role === "assistant" ? <><Response>{turn.text}</Response>{turn.process?.length ? <ProcessTimeline steps={turn.process}/>: null}{turn.detail?.result_table?.length ? <ResultTable rows={turn.detail.result_table}/>: null}{turn.detail?.chart_file && <div className="result-block"><div className="result-title"><BarChart3 size={15}/> Generated chart</div><img className="chart" src={turn.detail.chart_file} alt="Generated analysis chart" /></div>}{turn.detail && <Evidence detail={turn.detail}/>}</> : turn.text}
+          {turn.role === "assistant" ? <><Response>{turn.text}</Response>{turn.process?.length ? <ProcessTimeline steps={turn.process}/>: null}{turn.detail?.chart_file && <div className="result-block"><div className="result-title"><BarChart3 size={15}/> Generated chart</div><img className="chart" src={turn.detail.chart_file} alt="Generated analysis chart" /></div>}{turn.detail && <Evidence detail={turn.detail}/>}</> : turn.text}
         </MessageContent></Message>)}
         {busy && dataset && <Message from="assistant"><MessageContent variant="flat">{process.length ? <ProcessTimeline steps={process} live/> : <div className="progress"><i/><div><ShimmeringText text="Starting the analysis loop"/><small>Waiting for the first backend event.</small></div></div>}</MessageContent></Message>}
       </ConversationContent><ConversationScrollButton /></Conversation>

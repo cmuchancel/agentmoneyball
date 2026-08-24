@@ -75,14 +75,8 @@ def _text(packet: AnalysisPacket) -> str:
         fraction = f" ({m.numerator}/{m.denominator})" if m.denominator is not None else ""
         return f"{m.group + ': ' if m.group else ''}{m.name}: {value}{unit}{fraction}"
     metrics = "; ".join(metric_text(metric) for metric in packet.metrics)
-    answer = metrics or "See the result table."
-    return (
-        f"{answer}\n\n**Method:** {packet.method}\n\n"
-        f"**Sample:** n={packet.sample_size if packet.sample_size is not None else 'not applicable'}  \n"
-        f"**Filters:** {', '.join(packet.filters) or 'none'}  \n"
-        f"**Coverage:** {packet.coverage}"
-        + (f"\n\n**Caution:** {'; '.join(packet.warnings)}" if packet.warnings else "")
-    )
+    answer = packet.answer_summary.strip() or metrics or "The analysis completed without a concise result."
+    return answer + (f"\n\n**Caution:** {'; '.join(packet.warnings)}" if packet.warnings else "")
 
 
 def live_services(file_id: str, profile: dict[str, Any]) -> tuple[Runner, Gate]:
@@ -151,7 +145,8 @@ def build_graph(run: Runner, gate: Gate):
             access_error = any(code in detail for code in ("401", "403", "model_not_found", "insufficient_quota"))
             packet = AnalysisPacket(
                 status="cannot_answer" if access_error else "error",
-                question_interpreted=state["question"], method="Execution failed", coverage="Unknown",
+                question_interpreted=state["question"], answer_summary="",
+                method="Execution failed", coverage="Unknown",
                 warnings=["OpenAI rejected the configured model or credentials. Check project model access and API billing." if access_error else detail],
                 execution_evidence=[],
             )

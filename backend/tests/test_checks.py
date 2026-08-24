@@ -4,7 +4,8 @@ import pytest
 
 
 def packet(**changes):
-    base = dict(status="success", question_interpreted="q", method="pandas", filters=[],
+    base = dict(status="success", question_interpreted="q", answer_summary="The rate was 50% (1 of 2).",
+                method="pandas", filters=[],
                 metrics=[Metric(name="rate", value=50, unit="percent", numerator=1, denominator=2)],
                 sample_size=30, coverage="all rows", executed_code=["print(1)"],
                 execution_evidence=["1"])

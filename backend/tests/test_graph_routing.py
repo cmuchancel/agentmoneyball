@@ -3,7 +3,9 @@ from scouting.schemas import AnalysisPacket, GateVerdict, Metric
 
 
 def good_packet():
-    return AnalysisPacket(status="success", question_interpreted="slider rate", method="filtered pandas",
+    return AnalysisPacket(status="success", question_interpreted="slider rate",
+                          answer_summary="The pitcher threw sliders on half of these pitches (2 of 4).",
+                          method="filtered pandas",
                           filters=["Balls == 0", "Strikes == 2"],
                           metrics=[Metric(name="slider rate", value=50, unit="percent", numerator=2, denominator=4)],
                           sample_size=4, coverage="4 pitches", warnings=["Small sample"],
@@ -29,6 +31,8 @@ def test_pass_route():
                         lambda state: GateVerdict(verdict="pass", reason="complete"))
     result = invoke(graph)
     assert result["final_answer"]["status"] == "success"
+    assert result["final_answer"]["answer"].startswith("The pitcher threw sliders")
+    assert "**Method:**" not in result["final_answer"]["answer"]
     assert result["analysis_attempt"] == 1
 
 
