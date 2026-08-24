@@ -146,7 +146,11 @@ def build_graph(run: Runner, gate: Gate):
 
     def check_result(state: AnalysisState) -> dict[str, Any]:
         packet = AnalysisPacket.model_validate(state["analysis_packet"])
-        return {"deterministic_errors": deterministic_checks(packet, state["question"])}
+        errors = deterministic_checks(packet, state["question"])
+        result: dict[str, Any] = {"deterministic_errors": errors}
+        if errors:
+            result["gate_feedback"] = "Fix these validation errors: " + "; ".join(errors)
+        return result
 
     def semantic_gate(state: AnalysisState) -> dict[str, Any]:
         verdict = gate(state)
