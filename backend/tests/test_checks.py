@@ -1,4 +1,5 @@
-from scouting.schemas import AnalysisPacket, LocationChart, LocationPoint, Metric, deterministic_checks
+from scouting.schemas import (AnalysisPacket, ChartEncoding, ChartFeature, LocationChart,
+                              LocationPoint, Metric, deterministic_checks)
 from scouting.graph import DailyUsage
 import pytest
 
@@ -24,12 +25,18 @@ def test_bad_rate_and_missing_evidence_fail():
     assert any("disagrees" in error for error in result)
 
 
-def test_location_chart_is_structured_with_legend():
-    chart = LocationChart(title="0-2 locations", legend_title="Pitch type",
-                          points=[LocationPoint(plate_x=-0.2, plate_z=2.4,
-                                                series="Slider", label="Swinging strike")])
+def test_location_chart_supports_dynamic_color_and_shape_features():
+    chart = LocationChart(
+        title="0-2 locations",
+        encodings=[ChartEncoding(feature="pitch_type", channel="color", label="Pitch type"),
+                   ChartEncoding(feature="outcome", channel="shape", label="Outcome")],
+        points=[LocationPoint(plate_x=-0.2, plate_z=2.4, label="0-2 pitch",
+                              features=[ChartFeature(name="pitch_type", value="Slider"),
+                                        ChartFeature(name="outcome", value="Swinging strike"),
+                                        ChartFeature(name="count", value="0-2")])])
     result = packet(location_chart=chart)
-    assert result.location_chart.points[0].series == "Slider"
+    assert [encoding.channel for encoding in result.location_chart.encodings] == ["color", "shape"]
+    assert result.location_chart.points[0].features[-1].value == "0-2"
 
 
 

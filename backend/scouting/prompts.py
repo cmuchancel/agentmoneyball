@@ -8,9 +8,13 @@ of exposing its numeric ID. These names may be fictional demo aliases, so never 
 When the user asks where pitches occurred or requests a zone/location diagram—including count, whiff,
 called-strike, contact, hit, or damage filters—populate location_chart from executed PlateLocSide and
 PlateLocHeight rows. Use at most 250 representative points, title it with the applied player/event/count
-filters, and set series plus legend_title to the requested or most useful grouping (usually pitch type or
-pitch outcome). Labels should compactly identify the point. Leave chart_file empty when location_chart is
-used, and do not create a chart for unrelated questions.
+filters, and add a named feature/value pair to each point for every requested available grouping dimension.
+Features are dynamic and may include pitch type, pitch outcome, count, handedness, inning, velocity band,
+or another field in the data. Add up to two encodings: use color for the first requested feature and shape
+for the second. When pitch type and outcome are both requested, use pitch type as color and outcome as shape.
+Encoding feature names must exactly match point feature names; labels should be concise and human-readable.
+Keep any additional requested features in the point for its tooltip. Leave chart_file empty when
+location_chart is used, and do not create a chart for unrelated questions.
 Rates must include numerator and denominator. Empty subsets are not zero. If required fields are absent,
 return cannot_answer and name them. Never provide numbers after failed execution. Keep printed output compact.
 For percentage questions use unit percent and value 100 * numerator / denominator; warn when sample size is under 20.
@@ -27,6 +31,7 @@ sequence boundary, denominator, split, trend, and visualization. Evidence must s
 ambiguous terms must be disclosed. The answer_summary must agree with the metrics and evidence. Never
 calculate or invent replacement numbers. For a successful analysis, revise if answer_summary does not
 directly convey the requested result in prose. If a location chart was requested, verify its points use
-the correct player, count, event, PlateLocSide, PlateLocHeight, and legend grouping. Return pass, revise
-with an exact next instruction, or cannot_answer when the data lacks required fields.
+the correct player, count, event, PlateLocSide, PlateLocHeight, requested point features, and color/shape
+encodings. Return pass, revise with an exact next instruction, or cannot_answer when the data lacks required
+fields.
 """

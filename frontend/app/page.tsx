@@ -28,15 +28,30 @@ function Evidence({ detail }: { detail: Answer }) {
 }
 
 function StrikeZone({ chart }: { chart: LocationChartData }) {
-  const series = [...new Set(chart.points.map(point => point.series))]; const [hidden, setHidden] = useState<string[]>([]);
+  const [hidden, setHidden] = useState<string[]>([]);
   const colors = ["#c7f55b", "#5bbcff", "#ffad5b", "#ef7197", "#a78bfa", "#58d6b0", "#f1dc62", "#d7dde0"];
   const left = 54, top = 24, width = 442, height = 354;
   const x = (value: number) => left + (value + 2.5) / 5 * width; const y = (value: number) => top + (5 - value) / 5 * height;
   const plotted = chart.points.filter(point => point.plate_x >= -2.5 && point.plate_x <= 2.5 && point.plate_z >= 0 && point.plate_z <= 5);
-  const legendTitle = chart.legend_title.replace("TaggedPitchType", "Pitch type").replace("AutoPitchType", "Pitch type").replace("PitchCall", "Pitch outcome");
-  function toggle(name: string) { setHidden(items => items.includes(name) ? items.filter(item => item !== name) : [...items, name]); }
+  const value = (point: LocationChartData["points"][number], feature: string) => point.features.find(item => item.name === feature)?.value ?? "Unknown";
+  const categories = (feature: string) => [...new Set(plotted.map(point => value(point, feature)))];
+  const colorEncoding = chart.encodings.find(item => item.channel === "color"); const shapeEncoding = chart.encodings.find(item => item.channel === "shape");
+  const pretty = (name: string) => ({TaggedPitchType: "Pitch type", AutoPitchType: "Pitch type", PitchCall: "Pitch outcome"}[name] ?? name.replaceAll("_", " ").replace(/([a-z])([A-Z])/g, "$1 $2"));
+  const key = (feature: string, category: string) => `${feature}:${category}`;
+  const visible = (point: LocationChartData["points"][number]) => !chart.encodings.some(encoding => hidden.includes(key(encoding.feature, value(point, encoding.feature))));
+  function toggle(feature: string, category: string) { const item = key(feature, category); setHidden(items => items.includes(item) ? items.filter(value => value !== item) : [...items, item]); }
+  function Shape({ index, cx, cy, size, fill }: { index: number; cx: number; cy: number; size: number; fill: string }) {
+    const points = index % 7 === 2 ? `${cx},${cy-size} ${cx+size},${cy+size} ${cx-size},${cy+size}`
+      : index % 7 === 3 ? `${cx},${cy-size} ${cx+size},${cy} ${cx},${cy+size} ${cx-size},${cy}`
+      : index % 7 === 4 ? `${cx-size},${cy-size} ${cx+size},${cy-size} ${cx},${cy+size}`
+      : index % 7 === 5 ? `${cx-size},${cy-size/3} ${cx-size/3},${cy-size/3} ${cx-size/3},${cy-size} ${cx+size/3},${cy-size} ${cx+size/3},${cy-size/3} ${cx+size},${cy-size/3} ${cx+size},${cy+size/3} ${cx+size/3},${cy+size/3} ${cx+size/3},${cy+size} ${cx-size/3},${cy+size} ${cx-size/3},${cy+size/3} ${cx-size},${cy+size/3}`
+      : `${cx-size},${cy} ${cx-size/2},${cy-size*.86} ${cx+size/2},${cy-size*.86} ${cx+size},${cy} ${cx+size/2},${cy+size*.86} ${cx-size/2},${cy+size*.86}`;
+    if (index % 7 === 0) return <circle className="pitch-symbol" cx={cx} cy={cy} r={size} fill={fill}/>;
+    if (index % 7 === 1) return <rect className="pitch-symbol" x={cx-size} y={cy-size} width={size*2} height={size*2} fill={fill}/>;
+    return <polygon className="pitch-symbol" points={points} fill={fill}/>;
+  }
   return <section className="strike-chart"><div className="strike-chart-head"><div><span>LOCATION MAP</span><h3>{chart.title}</h3></div><small>{plotted.length} plotted pitches</small></div>
-    <svg className="strike-zone" viewBox="0 0 520 430" role="img" aria-label={`${chart.title}. ${plotted.length} pitch locations.`}><title>{chart.title}</title><desc>Pitch locations relative to a reference strike zone. Horizontal location is in feet and height is in feet.</desc>
+    <svg className="strike-zone" viewBox="0 0 520 430" role="img" aria-label={`${chart.title}. ${plotted.length} pitch locations.`}><title>{chart.title}</title><desc>Pitch locations relative to a reference strike zone. Color and shape encode the requested pitch features.</desc>
       <rect className="zone-frame" x={left} y={top} width={width} height={height}/>
       {[1,2,3,4].map(tick => <g className="zone-axis" key={`y-${tick}`}><line x1={left} x2={left + width} y1={y(tick)} y2={y(tick)}/><text x={left - 10} y={y(tick) + 4} textAnchor="end">{tick}</text></g>)}
       {[-2,-1,0,1,2].map(tick => <g className="zone-axis" key={`x-${tick}`}><line x1={x(tick)} x2={x(tick)} y1={top} y2={top + height}/><text x={x(tick)} y={top + height + 20} textAnchor="middle">{tick}</text></g>)}
@@ -45,10 +60,10 @@ function StrikeZone({ chart }: { chart: LocationChartData }) {
       {[-.277,.277].map(value => <line className="zone-cell" key={`zx-${value}`} x1={x(value)} x2={x(value)} y1={y(3.5)} y2={y(1.5)}/>)}
       {[2.167,2.833].map(value => <line className="zone-cell" key={`zy-${value}`} x1={x(-.83)} x2={x(.83)} y1={y(value)} y2={y(value)}/>)}
       <path className="home-plate" d={`M ${x(-.38)} ${y(.3)} L ${x(.38)} ${y(.3)} L ${x(.48)} ${y(.12)} L ${x(0)} ${y(0)} L ${x(-.48)} ${y(.12)} Z`}/>
-      {plotted.filter(point => !hidden.includes(point.series)).map((point, index) => <circle className="pitch-dot" key={index} cx={x(point.plate_x)} cy={y(point.plate_z)} r="4.2" fill={colors[series.indexOf(point.series) % colors.length]}><title>{point.series}{point.label ? ` · ${point.label}` : ""} · x {point.plate_x.toFixed(2)}, z {point.plate_z.toFixed(2)}</title></circle>)}
+      {plotted.filter(visible).map((point, index) => { const colorValues = colorEncoding ? categories(colorEncoding.feature) : []; const shapeValues = shapeEncoding ? categories(shapeEncoding.feature) : []; const color = colorEncoding ? colors[colorValues.indexOf(value(point, colorEncoding.feature)) % colors.length] : colors[0]; const shape = shapeEncoding ? shapeValues.indexOf(value(point, shapeEncoding.feature)) : 0; return <g className="pitch-mark" key={index}><title>{point.features.map(item => `${pretty(item.name)}: ${item.value}`).join(" · ")}{point.label ? ` · ${point.label}` : ""} · x {point.plate_x.toFixed(2)}, z {point.plate_z.toFixed(2)}</title><Shape index={shape} cx={x(point.plate_x)} cy={y(point.plate_z)} size={4.5} fill={color}/></g>; })}
       <text className="axis-label" x={left + width / 2} y="425" textAnchor="middle">Horizontal plate location (ft)</text><text className="axis-label" transform={`translate(14 ${top + height / 2}) rotate(-90)`} textAnchor="middle">Height (ft)</text>
     </svg>
-    <div className="zone-legend"><span>{legendTitle}</span>{series.map((name, index) => <button type="button" aria-pressed={!hidden.includes(name)} key={name} onClick={() => toggle(name)}><i style={{background:colors[index % colors.length]}}/>{name}</button>)}</div>
+    {chart.encodings.map(encoding => <div className="zone-legend" key={`${encoding.channel}-${encoding.feature}`}><span>{encoding.label || pretty(encoding.feature)} · {encoding.channel}</span>{categories(encoding.feature).map((category, index) => <button type="button" aria-pressed={!hidden.includes(key(encoding.feature, category))} key={category} onClick={() => toggle(encoding.feature, category)}>{encoding.channel === "color" ? <i style={{background:colors[index % colors.length]}}/> : <svg viewBox="0 0 14 14" aria-hidden="true"><Shape index={index} cx={7} cy={7} size={4} fill="#c3cac3"/></svg>}{category}</button>)}</div>)}
   </section>;
 }
 
@@ -91,7 +106,7 @@ export default function Home() {
   const pitcher = dataset?.profile.pitcher_aliases["1000036206"] ?? dataset?.profile.pitcher_names[0] ?? "pitcher 1000036206";
   const batter = dataset?.profile.batter_aliases["8886045"] ?? dataset?.profile.batter_names[0] ?? "batter 8886045";
   const examples = [
-    ["0–2 pitch map", `Show ${pitcher}'s pitch locations in 0-2 counts, colored by pitch type.`],
+    ["0–2 pitch map", `Show ${pitcher}'s pitch locations in 0-2 counts, colored by pitch type and shaped by pitch outcome.`],
     ["Whiff locations", `Where does ${pitcher} get swings and misses? Render the strike zone and color by pitch type.`],
     ["Contact locations", `Show where pitches to ${batter} were put in play, colored by pitch outcome.`]
   ];

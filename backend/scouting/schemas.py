@@ -23,16 +23,27 @@ class Metric(BaseModel):
         return self
 
 
+class ChartFeature(BaseModel):
+    name: str
+    value: str
+
+
+class ChartEncoding(BaseModel):
+    feature: str
+    channel: Literal["color", "shape"]
+    label: str
+
+
 class LocationPoint(BaseModel):
     plate_x: float
     plate_z: float
-    series: str
+    features: list[ChartFeature] = Field(default_factory=list, max_length=6)
     label: str = ""
 
 
 class LocationChart(BaseModel):
     title: str
-    legend_title: str
+    encodings: list[ChartEncoding] = Field(default_factory=list, max_length=2)
     points: list[LocationPoint] = Field(min_length=1, max_length=250)
 
 
