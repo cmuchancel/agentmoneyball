@@ -20,7 +20,7 @@ In a second terminal:
 pixi run frontend
 ```
 
-Open http://localhost:3000. The bundled `data/trackman_v3_games` folder contains 3,344 anonymized pitches split across 21 TrackMan V3 college scrimmage files. PitchQuery accepts either one CSV or a folder of game CSVs. See [data/ATTRIBUTION.md](data/ATTRIBUTION.md) for the data source and CC BY 4.0 terms.
+Open http://localhost:3000. The bundled `data/trackman_v3_games` folder contains 3,344 anonymized pitches split across 21 TrackMan V3 college scrimmage files. The demo adds stable fictional pitcher and batter names at runtime while retaining the source IDs. PitchQuery accepts either one CSV or a folder of game CSVs. See [data/ATTRIBUTION.md](data/ATTRIBUTION.md) for the data source and CC BY 4.0 terms.
 
 ## Verify
 

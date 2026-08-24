@@ -1,5 +1,7 @@
-export type Profile = { dataset_id: string; file_name: string; rows: number; columns: number;
-  pitchers?: number; batters?: number; date_coverage?: string; warnings: string[] };
+export type Profile = { dataset_id: string; file_name: string; rows: number; columns: number; games: number; source_files: string[];
+  pitchers?: number; batters?: number; pitcher_names: string[]; batter_names: string[];
+  pitcher_teams: Record<string, string[]>; batter_teams: Record<string, string[]>; pitcher_aliases: Record<string, string>;
+  batter_aliases: Record<string, string>; date_coverage?: string; warnings: string[] };
 export type Answer = { status: string; answer: string; filters: string[]; metric_definitions: string[];
   method: string; sample_size?: number | null; chart_file?: string;
   coverage: string; warnings: string[]; executed_code: string[];

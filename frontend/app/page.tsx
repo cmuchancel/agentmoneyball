@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import * as Collapsible from "@radix-ui/react-collapsible";
-import { BarChart3, Check, ChevronDown, Code2, Database, FileWarning, Filter, Send, Upload } from "lucide-react";
+import { BarChart3, Check, ChevronDown, Code2, Database, Files, FileWarning, Filter, Plus, Send, Upload, Users } from "lucide-react";
 import { Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton } from "@/components/ui/conversation";
 import { Message, MessageContent } from "@/components/ui/message";
 import { Response } from "@/components/ui/response";
@@ -10,11 +10,6 @@ import { ShimmeringText } from "@/components/ui/shimmering-text";
 import { Answer, Profile, ProgressEvent, chat, upload } from "@/lib/api";
 
 type Turn = { role: "user" | "assistant"; text: string; detail?: Answer; process?: ProgressEvent[] };
-const examples = [
-  ["0–2 slider usage", "For pitcher 1000036206, what percentage of pitches in 0-2 counts are sliders?"],
-  ["Next-pitch sequence", "After pitcher 1000036206 throws a fastball for a called strike, what comes next, split by batter handedness?"],
-  ["Test a limitation", "How does pitcher 1000036206 perform with runners on first and third while trailing by one run?"]
-];
 
 function ProcessTimeline({ steps, live = false }: { steps: ProgressEvent[]; live?: boolean }) {
   return <Collapsible.Root className="process-timeline" defaultOpen={live}>
@@ -30,6 +25,17 @@ function Evidence({ detail }: { detail: Answer }) {
     {detail.execution_evidence.length > 0 && <div className="tool-output"><small>Compact execution output</small>{detail.execution_evidence.map((x, i) => <p key={i}>{x}</p>)}</div>}
     {detail.daily_usage && <p className="usage-note">PitchQuery usage today: {detail.daily_usage.tokens.toLocaleString()} / {detail.daily_usage.limit.toLocaleString()} reported tokens</p>}
   </Collapsible.Content></Collapsible.Root>;
+}
+
+function Roster({ profile }: { profile: Profile }) {
+  const pitchers = profile.pitcher_names; const batters = profile.batter_names;
+  const list = (names: string[], teams: Record<string, string[]>) => <div className="roster-list">{names.map(name => <span key={name}><b>{name}</b>{teams[name]?.length ? <small>{teams[name].map(team => team.replace("T_", "")).join(" / ")}</small> : null}</span>)}</div>;
+  if (!pitchers.length && !batters.length) return null;
+  return <Collapsible.Root className="disclosure-root"><Collapsible.Trigger className="disclosure-trigger"><span><Users size={14}/> Roster</span><small>{pitchers.length} P / {batters.length} B</small><ChevronDown size={14}/></Collapsible.Trigger><Collapsible.Content className="roster-grid"><div><b>Pitchers</b>{list(pitchers, profile.pitcher_teams)}</div><div><b>Batters</b>{list(batters, profile.batter_teams)}</div></Collapsible.Content></Collapsible.Root>;
+}
+
+function GameFiles({ profile }: { profile: Profile }) {
+  return <Collapsible.Root className="disclosure-root"><Collapsible.Trigger className="disclosure-trigger"><span><Files size={14}/> Game files</span><small>{profile.source_files.length} loaded</small><ChevronDown size={14}/></Collapsible.Trigger><Collapsible.Content className="file-list">{profile.source_files.map((file, i) => <div key={file}><i>{String(i + 1).padStart(2, "0")}</i><span>{file}</span></div>)}</Collapsible.Content></Collapsible.Root>;
 }
 
 export default function Home() {
@@ -57,15 +63,22 @@ export default function Home() {
     const files = Array.from(list ?? []).filter(file => file.name.toLowerCase().endsWith(".csv"));
     if (files.length) void choose(files); else setError("The selected folder contains no CSV files.");
   }
+  const pitcher = dataset?.profile.pitcher_aliases["1000036206"] ?? dataset?.profile.pitcher_names[0] ?? "pitcher 1000036206";
+  const batter = dataset?.profile.batter_aliases["8886045"] ?? dataset?.profile.batter_names[0] ?? "batter 8886045";
+  const examples = [
+    ["0–2 slider usage", `For ${pitcher}, what percentage of pitches in 0-2 counts are sliders?`],
+    ["Next-pitch sequence", `After ${pitcher} throws a fastball for a called strike, what comes next, split by batter handedness?`],
+    ["Batter contact profile", `For ${batter}, compare average exit velocity by pitch type and tell me which sample is largest.`]
+  ];
 
   return <main>
-    <header><div className="brand">PQ</div><div><h1>PitchQuery</h1><p>Every pitch. Any question answerable from your data.</p></div><span className="trust-badge"><Check size={13}/> Evidence-gated</span></header>
+    <header><div className="brand">PQ</div><div><h1>PitchQuery</h1><p>TrackMan scouting workspace</p></div><span className="trust-badge"><Check size={13}/> Executed evidence</span></header>
     <section className="data-card">
-      <div><span className="eyebrow"><Database size={14}/> DATA SOURCE</span><h2>{dataset?.profile.file_name ?? "Load pitch data"}</h2><p className="muted">Upload one TrackMan CSV, a folder of game CSVs, or explore the public V3 dataset.</p></div>
+      <div className="data-intro"><span className="eyebrow"><Database size={14}/> ACTIVE DATASET</span><h2>{dataset?.profile.file_name ?? "Load pitch data"}</h2><p className="muted">One CSV, a folder of games, or the bundled TrackMan V3 demo.</p></div>
       <div className="actions"><label className="button secondary"><Upload size={16}/> Upload CSV<input type="file" accept=".csv,text/csv" hidden onChange={e => e.target.files?.[0] && choose([e.target.files[0]])}/></label><label className="button secondary"><Upload size={16}/> Upload folder<input type="file" accept=".csv,text/csv" multiple hidden {...({webkitdirectory: "", directory: ""} as Record<string, string>)} onChange={e => chooseFolder(e.target.files)}/></label><button onClick={() => choose()} disabled={busy}>Use demo data</button></div>
-      {dataset && <><div className="stats"><span><b>{dataset.profile.rows.toLocaleString()}</b> pitches</span><span><b>{dataset.profile.columns}</b> fields</span><span><b>{dataset.profile.pitchers ?? "—"}</b> pitchers</span><span><b>{dataset.profile.batters ?? "—"}</b> batters</span><span><b>{dataset.profile.date_coverage ?? "—"}</b> coverage</span><button className="link" onClick={reset}>Start new conversation</button></div><div className="dataset-notice"><FileWarning size={15}/><span>The bundled research dataset contains anonymized players and dates. Answers can only use fields present in the loaded file.</span></div></>}
+      {dataset && <><div className="stats"><span><b>{dataset.profile.games.toLocaleString()}</b> games</span><span><b>{dataset.profile.rows.toLocaleString()}</b> pitches</span><span><b>{dataset.profile.pitchers ?? "—"}</b> pitchers</span><span><b>{dataset.profile.batters ?? "—"}</b> batters</span></div><div className="dataset-notice"><FileWarning size={15}/><span>{Object.keys(dataset.profile.pitcher_aliases).length ? "Names are stable fictional aliases; source player IDs remain attached to every pitch." : "Roster names come directly from the uploaded pitch files."}</span></div><div className="dataset-explorers"><GameFiles profile={dataset.profile}/><Roster profile={dataset.profile}/></div></>}
     </section>
-    <section className="chat-card"><div className="chat-head"><div><span className="eyebrow">SCOUTING CONVERSATION</span><h2>Ask the pitch data.</h2></div>{dataset && <span className="ready"><i/> Dataset ready</span>}</div>
+    <section className="chat-card"><div className="chat-head"><div><span className="eyebrow">SCOUTING CONSOLE</span><h2>Interrogate the pitch data.</h2></div>{dataset && <div className="chat-tools"><span className="ready"><i/> Dataset ready</span><button className="new-chat" onClick={reset}><Plus size={14}/> New thread</button></div>}</div>
       <Conversation className="conversation"><ConversationContent className="conversation-content">
         {!turns.length ? <ConversationEmptyState title={dataset ? "What do you want to know?" : "Load a CSV to begin"} description={dataset ? "Try a count, sequence, usage, location, or velocity question." : "PitchQuery profiles the file before allowing analysis."}><div className="examples">{examples.map(([label, question]) => <button key={label} onClick={() => ask(question)} disabled={!dataset}><b>{label}</b><span>{question}</span></button>)}</div></ConversationEmptyState> : turns.map((turn, i) => <Message from={turn.role} key={i}><MessageContent variant={turn.role === "assistant" ? "flat" : "contained"}>
           {turn.role === "assistant" ? <><Response>{turn.text}</Response>{turn.process?.length ? <ProcessTimeline steps={turn.process}/>: null}{turn.detail?.chart_file && <div className="result-block"><div className="result-title"><BarChart3 size={15}/> Generated chart</div><img className="chart" src={turn.detail.chart_file} alt="Generated analysis chart" /></div>}{turn.detail && <Evidence detail={turn.detail}/>}</> : turn.text}
@@ -75,6 +88,6 @@ export default function Home() {
       {error && <p className="error">{error}</p>}
       <form onSubmit={submit}><input aria-label="Question" value={input} onChange={e => setInput(e.target.value)} placeholder={dataset ? "Ask about counts, sequences, movement, location…" : "Load a dataset to begin"} disabled={!dataset || busy}/><button aria-label="Send" disabled={!dataset || busy || !input.trim()}><Send size={18}/></button></form>
     </section>
-    <footer>Numerical answers come from successfully executed Pandas code · No ElevenLabs Agent ID or voice connection</footer>
+    <footer>PITCHQUERY / TRACKMAN SCOUTING / EXECUTED PANDAS EVIDENCE</footer>
   </main>;
 }

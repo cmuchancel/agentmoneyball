@@ -55,12 +55,20 @@ class DatasetProfile(BaseModel):
     file_name: str
     rows: int
     columns: int
+    games: int
+    source_files: list[str] = Field(default_factory=list)
     column_names: list[str]
     dtypes: dict[str, str]
     missing_values: dict[str, int]
     categorical_values: dict[str, list[str]]
     pitchers: int | None = None
     batters: int | None = None
+    pitcher_names: list[str] = Field(default_factory=list)
+    batter_names: list[str] = Field(default_factory=list)
+    pitcher_teams: dict[str, list[str]] = Field(default_factory=dict)
+    batter_teams: dict[str, list[str]] = Field(default_factory=dict)
+    pitcher_aliases: dict[str, str] = Field(default_factory=dict)
+    batter_aliases: dict[str, str] = Field(default_factory=dict)
     date_coverage: str | None = None
     ordering_strategy: str
     structural_key_strategy: str

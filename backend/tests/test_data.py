@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from scouting.data import DataValidationError, combine_csv_files, load_and_prepare
+from scouting.data import DataValidationError, combine_csv_files, load_and_prepare, profile_for_prompt
 
 
 def test_structural_keys_do_not_change_source_columns(tmp_path):
@@ -50,3 +50,38 @@ def test_folder_files_become_explicit_sessions(tmp_path):
     assert prepared["_session_id"].nunique() == 2
     assert prepared["_source_file"].tolist() == ["one.csv", "two.csv"]
     assert profile.rows == 2
+    assert profile.games == 2
+    assert profile.source_files == ["one.csv", "two.csv"]
+
+
+def test_demo_aliases_are_stable_and_keep_source_ids(tmp_path):
+    source = pd.DataFrame({"PitchNo": [1, 2], "PitchofPA": [1, 1], "Balls": [0, 0],
+                           "Strikes": [0, 0], "TaggedPitchType": ["Fastball"] * 2,
+                           "PitchCall": ["StrikeCalled"] * 2, "PitcherId": [20, 10],
+                           "BatterId": [30, 20]})
+    path = tmp_path / "demo.csv"
+    source.to_csv(path, index=False)
+    prepared, profile = load_and_prepare(path, demo_aliases=True)
+    repeated, _ = load_and_prepare(path, demo_aliases=True)
+    assert prepared["PitcherId"].tolist() == [20, 10]
+    assert prepared[["PitcherName", "BatterName"]].equals(repeated[["PitcherName", "BatterName"]])
+    assert profile.pitcher_aliases["20"] == profile.batter_aliases["20"]
+    assert set(profile.pitcher_names) == set(profile.pitcher_aliases.values())
+    assert set(profile.batter_names) == set(profile.batter_aliases.values())
+    assert "fictional demo aliases" in profile.warnings[-1]
+
+
+def test_uploaded_name_columns_populate_roster(tmp_path):
+    source = pd.DataFrame({"PitchNo": [1], "PitchofPA": [1], "Balls": [0], "Strikes": [0],
+                           "TaggedPitchType": ["Fastball"], "PitchCall": ["StrikeCalled"],
+                           "PitcherId": [1], "PitcherName": ["Taylor Reed"], "PitcherTeam": ["Home"],
+                           "BatterId": [2], "BatterName": ["Jordan Cole"], "BatterTeam": ["Away"]})
+    path = tmp_path / "named.csv"
+    source.to_csv(path, index=False)
+    _, profile = load_and_prepare(path)
+    assert profile.pitcher_names == ["Taylor Reed"]
+    assert profile.batter_names == ["Jordan Cole"]
+    assert profile.pitcher_teams == {"Taylor Reed": ["Home"]}
+    assert profile.batter_teams == {"Jordan Cole": ["Away"]}
+    assert not profile.pitcher_aliases
+    assert "pitcher_names" not in profile_for_prompt(profile)

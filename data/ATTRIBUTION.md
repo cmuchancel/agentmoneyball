@@ -6,6 +6,6 @@ The original `Track_Combo.csv` is from **Optical Tracking Data from College Base
 - Dataset: https://data.mendeley.com/datasets/xfnz6mkdzm/3
 - License: [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/)
 - Original CSV SHA-256: `7b7b8974107be6181dcf1880d609034ef9f7556f9fb13aec021a52d37cd0c190`
-- Changes: the combined source CSV was split into 21 per-game CSVs at its natural `PitchNo` resets; pitch rows and values are unchanged. PitchQuery adds structural columns only to temporary prepared copies at runtime.
+- Changes: the combined source CSV was split into 21 per-game CSVs at its natural `PitchNo` resets; pitch rows and values are unchanged. At runtime, PitchQuery adds structural columns and clearly labeled fictional player aliases to temporary demo copies only.
 
 The source contains 3,344 pitch-level observations from 21 college baseball scrimmages recorded with TrackMan V3. Player IDs, team IDs, and dates were anonymized by the dataset author.

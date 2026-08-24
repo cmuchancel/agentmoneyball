@@ -37,9 +37,9 @@ class ChatRequest(BaseModel):
     message: str
 
 
-def register(path: Path, display_name: str) -> dict[str, Any]:
+def register(path: Path, display_name: str, demo_aliases: bool = False) -> dict[str, Any]:
     try:
-        frame, profile = load_and_prepare(path)
+        frame, profile = load_and_prepare(path, demo_aliases=demo_aliases)
     except DataValidationError as exc:
         raise HTTPException(422, str(exc)) from exc
     prepared = STORE / profile.dataset_id / "pitches.csv"
@@ -49,9 +49,9 @@ def register(path: Path, display_name: str) -> dict[str, Any]:
     return {"dataset_id": profile.dataset_id, "profile": profile.model_dump()}
 
 
-def register_many(paths: list[Path], display_name: str) -> dict[str, Any]:
+def register_many(paths: list[Path], display_name: str, demo_aliases: bool = False) -> dict[str, Any]:
     combined = STORE / "uploads" / f"{uuid.uuid4()}-combined.csv"
-    return register(combine_csv_files(paths, combined), display_name)
+    return register(combine_csv_files(paths, combined), display_name, demo_aliases=demo_aliases)
 
 
 @app.get("/api/health")
@@ -66,7 +66,7 @@ async def upload_dataset(file: UploadFile | None = File(None), files: list[Uploa
         demo_files = sorted(DEMO.glob("*.csv"))
         if not demo_files:
             raise HTTPException(404, "Bundled demo data is not installed.")
-        return register_many(demo_files, "21 public TrackMan V3 scrimmage files")
+        return register_many(demo_files, "21 public TrackMan V3 scrimmage files", demo_aliases=True)
     uploads = files or ([file] if file else [])
     if not uploads:
         raise HTTPException(400, "Choose a CSV file or folder.")
