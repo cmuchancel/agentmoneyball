@@ -11,8 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import BaseModel
 
-from scouting.data import DataValidationError, load_and_prepare, save_prepared
-from scouting.graph import build_graph, live_services
+from backend.scouting.data import DataValidationError, load_and_prepare, save_prepared
+from backend.scouting.graph import build_graph, live_services
 
 ROOT = Path(__file__).resolve().parents[1]
 STORE = ROOT / ".data"
@@ -85,4 +85,3 @@ def chat(request: ChatRequest):
         config={"configurable": {"thread_id": f"{request.dataset_id}:{request.thread_id}"}},
     )
     return result["final_answer"]
-
