@@ -12,9 +12,9 @@ async function checked(response: Response) {
   throw new Error(body.detail ?? "Request failed");
 }
 
-export async function upload(file?: File) {
+export async function upload(files?: File[]) {
   const body = new FormData();
-  if (file) body.append("file", file); else body.append("use_demo", "true");
+  if (files?.length) files.forEach(file => body.append("files", file)); else body.append("use_demo", "true");
   return checked(await fetch(`${base}/api/datasets`, { method: "POST", body })) as Promise<{dataset_id: string; profile: Profile}>;
 }
 

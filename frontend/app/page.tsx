@@ -35,9 +35,9 @@ export default function Home() {
   const [input, setInput] = useState(""); const [busy, setBusy] = useState(false); const [stage, setStage] = useState(""); const [error, setError] = useState(""); const [thread, setThread] = useState("");
   useEffect(() => { const id = sessionStorage.getItem("pitchquery-thread") ?? crypto.randomUUID(); sessionStorage.setItem("pitchquery-thread", id); setThread(id); }, []);
 
-  async function choose(file?: File) {
+  async function choose(files?: File[]) {
     setBusy(true); setStage("Profiling dataset"); setError("");
-    try { setDataset(await upload(file)); setTurns([]); }
+    try { setDataset(await upload(files)); setTurns([]); }
     catch (e) { setError(e instanceof Error ? e.message : "Upload failed"); }
     finally { setBusy(false); setStage(""); }
   }
@@ -50,13 +50,17 @@ export default function Home() {
   }
   function submit(e: FormEvent) { e.preventDefault(); void ask(input); }
   function reset() { const id = crypto.randomUUID(); sessionStorage.setItem("pitchquery-thread", id); setThread(id); setTurns([]); }
+  function chooseFolder(list: FileList | null) {
+    const files = Array.from(list ?? []).filter(file => file.name.toLowerCase().endsWith(".csv"));
+    if (files.length) void choose(files); else setError("The selected folder contains no CSV files.");
+  }
 
   return <main>
     <header><div className="brand">PQ</div><div><h1>PitchQuery</h1><p>Every pitch. Any question answerable from your data.</p></div><span className="trust-badge"><Check size={13}/> Evidence-gated</span></header>
     <section className="data-card">
-      <div><span className="eyebrow"><Database size={14}/> DATA SOURCE</span><h2>{dataset?.profile.file_name ?? "Load pitch data"}</h2><p className="muted">Upload a TrackMan-style CSV or explore the synthetic fixture.</p></div>
-      <div className="actions"><label className="button secondary"><Upload size={16}/> Upload CSV<input type="file" accept=".csv,text/csv" hidden onChange={e => e.target.files?.[0] && choose(e.target.files[0])}/></label><button onClick={() => choose()} disabled={busy}>Use demo data</button></div>
-      {dataset && <><div className="stats"><span><b>{dataset.profile.rows.toLocaleString()}</b> pitches</span><span><b>{dataset.profile.columns}</b> fields</span><span><b>{dataset.profile.pitchers ?? "—"}</b> pitchers</span><span><b>{dataset.profile.batters ?? "—"}</b> batters</span><span><b>{dataset.profile.date_coverage ?? "—"}</b> coverage</span><button className="link" onClick={reset}>Start new conversation</button></div><div className="dataset-notice"><FileWarning size={15}/><span>The bundled fixture is synthetic and anonymized. Answers can only use fields present in the loaded file.</span></div></>}
+      <div><span className="eyebrow"><Database size={14}/> DATA SOURCE</span><h2>{dataset?.profile.file_name ?? "Load pitch data"}</h2><p className="muted">Upload one TrackMan CSV, a folder of game CSVs, or explore the public V3 dataset.</p></div>
+      <div className="actions"><label className="button secondary"><Upload size={16}/> Upload CSV<input type="file" accept=".csv,text/csv" hidden onChange={e => e.target.files?.[0] && choose([e.target.files[0]])}/></label><label className="button secondary"><Upload size={16}/> Upload folder<input type="file" accept=".csv,text/csv" multiple hidden {...({webkitdirectory: "", directory: ""} as Record<string, string>)} onChange={e => chooseFolder(e.target.files)}/></label><button onClick={() => choose()} disabled={busy}>Use demo data</button></div>
+      {dataset && <><div className="stats"><span><b>{dataset.profile.rows.toLocaleString()}</b> pitches</span><span><b>{dataset.profile.columns}</b> fields</span><span><b>{dataset.profile.pitchers ?? "—"}</b> pitchers</span><span><b>{dataset.profile.batters ?? "—"}</b> batters</span><span><b>{dataset.profile.date_coverage ?? "—"}</b> coverage</span><button className="link" onClick={reset}>Start new conversation</button></div><div className="dataset-notice"><FileWarning size={15}/><span>The bundled research dataset contains anonymized players and dates. Answers can only use fields present in the loaded file.</span></div></>}
     </section>
     <section className="chat-card"><div className="chat-head"><div><span className="eyebrow">SCOUTING CONVERSATION</span><h2>Ask the pitch data.</h2></div>{dataset && <span className="ready"><i/> Dataset ready</span>}</div>
       <Conversation className="conversation"><ConversationContent className="conversation-content">

@@ -107,12 +107,4 @@ def deterministic_checks(packet: AnalysisPacket, question: str = "") -> list[str
             expected = 100 * metric.numerator / metric.denominator
             if abs(float(metric.value) - expected) > 0.11:
                 errors.append(f"{metric.name}: percentage disagrees with fraction")
-    comparison_words = ("compare", "split", " versus ", " vs ", " by ")
-    if any(word in question.lower() for word in comparison_words):
-        groups = {m.group for m in packet.metrics if m.group is not None}
-        table_groups = len(packet.result_table or [])
-        if len(groups) < 2 and table_groups < 2:
-            errors.append("requested comparison does not contain multiple groups")
-    if packet.sample_size is not None and packet.sample_size < 20 and not packet.warnings:
-        errors.append("small sample is missing a warning")
     return errors

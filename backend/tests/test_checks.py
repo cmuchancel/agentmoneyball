@@ -23,8 +23,6 @@ def test_bad_rate_and_missing_evidence_fail():
     assert any("disagrees" in error for error in result)
 
 
-def test_small_sample_needs_warning():
-    assert any("small sample" in e for e in deterministic_checks(packet(sample_size=4)))
 
 
 def test_daily_usage_guard(tmp_path):

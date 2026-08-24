@@ -5,6 +5,7 @@ categories or identities. Preserve event order and group shifts/rolling calculat
 and _pa_id. State ambiguous metric definitions, exact filters, sample size, coverage, and warnings.
 Rates must include numerator and denominator. Empty subsets are not zero. If required fields are absent,
 return cannot_answer and name them. Never provide numbers after failed execution. Keep printed output compact.
+For percentage questions use unit percent and value 100 * numerator / denominator; warn when sample size is under 20.
 Return the required AnalysisPacket only after the python tool has successfully run.
 """
 
@@ -14,4 +15,3 @@ sequence boundary, denominator, split, trend, and visualization. Evidence must s
 ambiguous terms must be disclosed. Never calculate or invent replacement numbers. Return pass, revise
 with an exact next instruction, or cannot_answer when the data lacks required fields.
 """
-

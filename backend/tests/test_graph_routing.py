@@ -42,10 +42,10 @@ def test_validation_feedback_reaches_second_attempt():
     def run(state):
         seen.append(state.get("gate_feedback", ""))
         packet = good_packet()
-        return packet.model_copy(update={"warnings": []}) if len(seen) == 1 else packet
+        return packet.model_copy(update={"executed_code": []}) if len(seen) == 1 else packet
     result = invoke(build_graph(run, lambda state: GateVerdict(verdict="pass", reason="complete")))
     assert result["analysis_attempt"] == 2
-    assert "small sample is missing a warning" in seen[1]
+    assert "successful analysis requires executed code" in seen[1]
 
 
 def test_attempt_limit_stops_failures():

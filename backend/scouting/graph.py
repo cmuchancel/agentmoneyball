@@ -68,11 +68,12 @@ def daily_usage_snapshot() -> dict[str, int | str]:
 
 
 def _text(packet: AnalysisPacket) -> str:
-    metrics = "; ".join(
-        f"{m.group + ': ' if m.group else ''}{m.name}: {m.value}{m.unit or ''}"
-        + (f" ({m.numerator}/{m.denominator})" if m.denominator is not None else "")
-        for m in packet.metrics
-    )
+    def metric_text(m) -> str:
+        value = f"{m.value:.2f}".rstrip("0").rstrip(".") if isinstance(m.value, float) else str(m.value)
+        unit = "%" if m.unit in {"percent", "%"} else f" {m.unit}" if m.unit else ""
+        fraction = f" ({m.numerator}/{m.denominator})" if m.denominator is not None else ""
+        return f"{m.group + ': ' if m.group else ''}{m.name}: {value}{unit}{fraction}"
+    metrics = "; ".join(metric_text(metric) for metric in packet.metrics)
     answer = metrics or "See the result table."
     return (
         f"{answer}\n\n**Method:** {packet.method}\n\n"
