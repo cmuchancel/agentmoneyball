@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import {
   BarChart3, Check, ChevronDown, ChevronUp, Code2, Database, Download,
-  FileBarChart, Files, FileText, FileWarning, Filter, FolderOpen, GripVertical, PanelRight,
+  Eye, FileBarChart, Files, FileText, FileWarning, Filter, FolderOpen, GripVertical, PanelRight,
   RefreshCw, Save, Send, Table2, Upload, Users, X,
 } from "lucide-react";
 import { Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton } from "@/components/ui/conversation";
@@ -31,6 +31,8 @@ type Artifact = {
 };
 
 type ReportTemplate = { id: string; name: string; recipes: string[] };
+type ReportPageMode = "full" | "summary" | "chart";
+type ReportPageSpec = { id: string; turn: Turn; mode: ReportPageMode };
 
 const TEMPLATE_KEY = "pitchquery-report-templates";
 const colors = ["#37a7ff", "#ff9418", "#74c82b", "#f45555", "#a57aff", "#3fd0b2", "#f1d45d", "#d7dde0"];
@@ -46,6 +48,18 @@ function artifactFrom(turn: Turn): Artifact | undefined {
   if (!kind) return;
   const title = detail.location_chart?.title || detail.question_interpreted || turn.question || "Scouting analysis";
   return { id: `artifact-${turn.id}`, turnId: turn.id, title, kind, detail };
+}
+
+function reportPages(turns: Turn[], selected: string[]): ReportPageSpec[] {
+  return selected.flatMap<ReportPageSpec>(id => {
+    const turn = turns.find(item => item.id === id); if (!turn) return [];
+    const artifact = artifactFrom(turn);
+    if (artifact?.detail.location_chart && artifact.detail.result_table?.length) return [
+      {id: `${turn.id}-summary`, turn, mode: "summary" as const},
+      {id: `${turn.id}-chart`, turn, mode: "chart" as const},
+    ];
+    return [{id: `${turn.id}-full`, turn, mode: "full" as const}];
+  });
 }
 
 function ProcessTimeline({ steps, live = false }: { steps: ProgressEvent[]; live?: boolean }) {
@@ -150,22 +164,22 @@ function Metrics({ detail }: { detail: Answer }) {
   </div>)}</div>;
 }
 
-function ResultTable({ rows }: { rows?: Record<string, unknown>[] | null }) {
+function ResultTable({ rows, limit = 50 }: { rows?: Record<string, unknown>[] | null; limit?: number }) {
   if (!rows?.length) return null;
   const columns = Object.keys(rows[0]).slice(0, 8);
   const display = (value: unknown) => typeof value === "number"
     ? value.toLocaleString(undefined, {maximumFractionDigits: 2})
     : String(value ?? "—");
   return <div className="result-table-wrap"><table><thead><tr>{columns.map(column => <th key={column}>{titleCase(column)}</th>)}</tr></thead><tbody>
-    {rows.slice(0, 50).map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{display(row[column])}</td>)}</tr>)}
-  </tbody></table>{rows.length > 50 && <small>Showing 50 of {rows.length.toLocaleString()} rows.</small>}</div>;
+    {rows.slice(0, limit).map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{display(row[column])}</td>)}</tr>)}
+  </tbody></table>{rows.length > limit && <small>Showing {limit.toLocaleString()} of {rows.length.toLocaleString()} rows.</small>}</div>;
 }
 
-function ArtifactBody({ artifact, print = false }: { artifact: Artifact; print?: boolean }) {
+function ArtifactBody({ artifact, print = false, mode = "full" }: { artifact: Artifact; print?: boolean; mode?: ReportPageMode }) {
   const detail = artifact.detail;
   return <div className={`artifact-body ${print ? "print-artifact" : ""}`}>
-    <Metrics detail={detail}/>
-    {detail.location_chart && <StrikeZone chart={detail.location_chart} compact={print}/>}<ResultTable rows={detail.result_table}/>
+    {mode !== "chart" && <Metrics detail={detail}/>}
+    {mode !== "summary" && detail.location_chart && <StrikeZone chart={detail.location_chart}/>}<ResultTable rows={mode === "chart" ? null : detail.result_table} limit={print ? 18 : 50}/>
     {!print && <Evidence detail={detail}/>}
   </div>;
 }
@@ -206,7 +220,7 @@ function ArtifactPreview({ artifact }: { artifact: Artifact }) {
     {artifact.detail.location_chart
       ? <StrikeZone chart={artifact.detail.location_chart} compact/>
       : artifact.detail.result_table?.length
-        ? <ResultTable rows={artifact.detail.result_table.slice(0, 3)}/>
+        ? <ResultTable rows={artifact.detail.result_table} limit={3}/>
         : <Metrics detail={artifact.detail}/>}
   </div>;
 }
@@ -258,31 +272,33 @@ function Workspace({ artifacts, activeId, setActive, close, toggleReport, select
 }) {
   const active = artifacts.find(artifact => artifact.id === activeId) ?? artifacts[0];
   return <section className="workspace-panel">
-    {artifacts.length > 0 && <div className="artifact-tabs" role="tablist" aria-label="Chat artifacts">{artifacts.map(artifact => <button type="button" role="tab" aria-selected={artifact.id === active?.id} className={artifact.id === active?.id ? "active" : ""} key={artifact.id} onClick={() => setActive(artifact.id)}>
-      {artifact.kind === "location" ? <FileBarChart size={13}/> : artifact.kind === "table" ? <Table2 size={13}/> : <BarChart3 size={13}/>}<span>{artifact.title}</span><X size={13} onClick={event => { event.stopPropagation(); close(artifact.id); }}/>
-    </button>)}</div>}
+    {artifacts.length > 0 && <div className="artifact-tabs" role="tablist" aria-label="Chat artifacts">{artifacts.map(artifact => <div className={`artifact-tab ${artifact.id === active?.id ? "active" : ""}`} key={artifact.id}>
+      <button type="button" role="tab" aria-selected={artifact.id === active?.id} className="tab-select" onClick={() => setActive(artifact.id)}>{artifact.kind === "location" ? <FileBarChart size={13}/> : artifact.kind === "table" ? <Table2 size={13}/> : <BarChart3 size={13}/>}<span>{artifact.title}</span></button>
+      <button type="button" className="tab-close" onClick={() => close(artifact.id)} aria-label={`Close ${artifact.title}`}><X size={13}/></button>
+    </div>)}</div>}
     {active ? <><div className="artifact-heading"><div><span>{active.kind === "location" ? "Location analysis" : active.kind === "table" ? "Data table" : "Scouting summary"}</span><h2>{active.title}</h2></div><button type="button" className={selected.includes(active.turnId) ? "selected" : ""} onClick={() => toggleReport(active.turnId)}><FileText size={14}/>{selected.includes(active.turnId) ? "In report" : "Add to report"}</button></div><div className="artifact-scroll"><ArtifactBody artifact={active}/></div></> : <div className="workspace-empty"><div><FileBarChart size={26}/></div><span>Artifact workspace</span><h2>Charts and tables open here.</h2><p>Ask a question in the conversation. Structured results create tabs automatically—there are no empty tabs to manage.</p></div>}
   </section>;
 }
 
-function ReportThumbnail({ turn, index }: { turn: Turn; index: number }) {
-  const artifact = artifactFrom(turn);
+function ReportThumbnail({ page, index }: { page: ReportPageSpec; index: number }) {
+  const artifact = artifactFrom(page.turn);
   return <div className="page-thumb"><div className="page-paper">
     <span>PITCHQUERY / ADVANCE REPORT</span>
-    <b>{artifact?.title || turn.question || "Scouting response"}</b>
-    <p>{turn.text}</p>
-    {artifact?.detail.location_chart ? <StrikeZone chart={artifact.detail.location_chart} compact/>
-      : artifact?.detail.result_table?.length ? <ResultTable rows={artifact.detail.result_table.slice(0, 5)}/>
-      : artifact ? <Metrics detail={artifact.detail}/> : null}
+    <b>{artifact?.title || page.turn.question || "Scouting response"}</b>
+    {page.mode !== "chart" && <div className="page-summary"><Response>{page.turn.text}</Response></div>}
+    {artifact && page.mode !== "chart" && <Metrics detail={artifact.detail}/>}
+    {artifact?.detail.location_chart && page.mode !== "summary" ? <StrikeZone chart={artifact.detail.location_chart} compact/> : null}
+    {artifact?.detail.result_table?.length && page.mode !== "chart" ? <ResultTable rows={artifact.detail.result_table} limit={5}/> : null}
   </div><small>Page {index+1}</small></div>;
 }
 
-function ReportComposer({ open, turns, selected, templates, templateId, templateName, player, players, busy, setOpen, setTemplateId, setTemplateName, setPlayer, remove, move, saveTemplate, runTemplate }: {
+function ReportComposer({ open, turns, selected, templates, templateId, templateName, player, players, busy, setOpen, setTemplateId, setTemplateName, setPlayer, remove, move, saveTemplate, runTemplate, previewReport }: {
   open: boolean; turns: Turn[]; selected: string[]; templates: ReportTemplate[]; templateId: string; templateName: string; player: string; players: string[]; busy: boolean;
   setOpen: (open: boolean) => void; setTemplateId: (id: string) => void; setTemplateName: (name: string) => void; setPlayer: (name: string) => void;
-  remove: (id: string) => void; move: (id: string, direction: -1 | 1) => void; saveTemplate: () => void; runTemplate: () => void;
+  remove: (id: string) => void; move: (id: string, direction: -1 | 1) => void; saveTemplate: () => void; runTemplate: () => void; previewReport: () => void;
 }) {
   const items = selected.map(id => turns.find(turn => turn.id === id)).filter(Boolean) as Turn[];
+  const pages = reportPages(turns, selected);
   return <aside className={`report-composer ${open ? "open" : ""}`}><div className="composer-head"><div><span>Report workspace</span><h2>Report Composer</h2></div><button type="button" onClick={() => setOpen(false)} aria-label="Close report composer"><X size={17}/></button></div>
     <div className="composer-scroll"><section className="composer-section"><label>Saved template</label><select value={templateId} onChange={event => setTemplateId(event.target.value)}><option value="">No template selected</option>{templates.map(template => <option value={template.id} key={template.id}>{template.name}</option>)}</select>
       <label>Template name</label><div className="inline-control"><input value={templateName} onChange={event => setTemplateName(event.target.value)}/><button type="button" onClick={saveTemplate} disabled={!items.length} title="Save selected questions as a reusable template"><Save size={14}/></button></div>
@@ -290,14 +306,25 @@ function ReportComposer({ open, turns, selected, templates, templateId, template
       <button type="button" className="generate-report" onClick={runTemplate} disabled={!templateId || !player || busy}><RefreshCw size={14}/> Generate selected template for player</button><p className="composer-help">Templates store the original questions as recipes and replace the player with <code>{"{{player}}"}</code>.</p>
     </section>
     <section className="composer-section"><div className="section-title"><label>Selected responses</label><small>{items.length} items</small></div>{items.length ? <div className="selected-items">{items.map((turn, index) => { const artifact = artifactFrom(turn); return <div key={turn.id}><GripVertical size={14}/><span>{artifact?.title || turn.question || "Scouting response"}</span><div><button type="button" onClick={() => move(turn.id,-1)} disabled={index===0} aria-label="Move up"><ChevronUp size={13}/></button><button type="button" onClick={() => move(turn.id,1)} disabled={index===items.length-1} aria-label="Move down"><ChevronDown size={13}/></button><button type="button" onClick={() => remove(turn.id)} aria-label="Remove"><X size={13}/></button></div></div>; })}</div> : <div className="composer-empty">Use “Add to report” on any response.</div>}</section>
-    <section className="composer-section"><div className="section-title"><label>US Letter preview</label><small>{items.length} pages</small></div><div className="page-thumbnails">{items.map((turn,index) => <ReportThumbnail turn={turn} index={index} key={turn.id}/>)}</div></section></div>
-    <div className="composer-footer"><span>{items.length} selected · US Letter</span><button type="button" onClick={() => window.print()} disabled={!items.length}><Download size={15}/> Export PDF</button></div>
+    <section className="composer-section"><div className="section-title"><label>US Letter preview</label><small>{pages.length} pages</small></div><div className="page-thumbnails">{pages.map((page,index) => <ReportThumbnail page={page} index={index} key={page.id}/>)}</div></section></div>
+    <div className="composer-footer"><span>{items.length} selected · US Letter</span><div><button type="button" className="preview-pdf" onClick={previewReport} disabled={!items.length}><Eye size={15}/> Preview PDF</button><button type="button" onClick={() => window.print()} disabled={!items.length}><Download size={15}/> Export PDF</button></div></div>
   </aside>;
 }
 
+function ReportPage({ page, index, total, player, className }: { page: ReportPageSpec; index: number; total: number; player: string; className: string }) {
+  const artifact = artifactFrom(page.turn);
+  return <article className={className}><header><div><b>PITCHQUERY</b><span>TRACKMAN ADVANCE REPORT</span></div><small>{player || "SCOUTING REPORT"} · {index+1} / {total}</small></header><h1>{artifact?.title || page.turn.question || "Scouting analysis"}</h1><p className="print-question">{page.turn.question}{page.mode === "chart" ? " · Complete location chart" : ""}</p>{page.mode !== "chart" && <div className="print-answer"><Response>{page.turn.text}</Response></div>}{artifact && <ArtifactBody artifact={artifact} print mode={page.mode}/>}<footer>Generated from executed PitchQuery evidence. Verify game-planning decisions against source video and staff context.</footer></article>;
+}
+
+function PdfPreview({ open, turns, selected, player, close }: { open: boolean; turns: Turn[]; selected: string[]; player: string; close: () => void }) {
+  if (!open) return null;
+  const pages = reportPages(turns, selected);
+  return <section className="pdf-preview-overlay" role="dialog" aria-modal="true" aria-label="PDF preview"><header><div><span>US Letter / Portrait</span><h2>Report preview</h2></div><div><button type="button" onClick={() => window.print()}><Download size={15}/> Print / Save PDF</button><button type="button" onClick={close} aria-label="Close PDF preview"><X size={18}/></button></div></header><div className="pdf-preview-scroll">{pages.map((page,index) => <ReportPage page={page} index={index} total={pages.length} player={player} className="preview-sheet" key={page.id}/>)}</div></section>;
+}
+
 function PrintReport({ turns, selected, player }: { turns: Turn[]; selected: string[]; player: string }) {
-  const items = selected.map(id => turns.find(turn => turn.id === id)).filter(Boolean) as Turn[];
-  return <div className="report-print-root">{items.map((turn,index) => { const artifact = artifactFrom(turn); return <article className="print-sheet" key={turn.id}><header><div><b>PITCHQUERY</b><span>TRACKMAN ADVANCE REPORT</span></div><small>{player || "SCOUTING REPORT"} · {index+1} / {items.length}</small></header><h1>{artifact?.title || turn.question || "Scouting analysis"}</h1><p className="print-question">{turn.question}</p><div className="print-answer">{turn.text}</div>{artifact && <ArtifactBody artifact={artifact} print/>}<footer>Generated from executed PitchQuery evidence. Verify game-planning decisions against source video and staff context.</footer></article>; })}</div>;
+  const pages = reportPages(turns, selected);
+  return <div className="report-print-root">{pages.map((page,index) => <ReportPage page={page} index={index} total={pages.length} player={player} className="print-sheet" key={page.id}/>)}</div>;
 }
 
 export default function Home() {
@@ -318,6 +345,7 @@ export default function Home() {
   const [templateName, setTemplateName] = useState("Pitcher Advance Report");
   const [player, setPlayer] = useState("");
   const [mobileView, setMobileView] = useState<"conversation" | "artifact">("conversation");
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     const id = sessionStorage.getItem("pitchquery-thread") ?? crypto.randomUUID();
@@ -328,7 +356,7 @@ export default function Home() {
   const players = useMemo(() => dataset ? [...new Set([...dataset.profile.pitcher_names, ...dataset.profile.batter_names])].sort() : [], [dataset]);
   useEffect(() => { if (players.length && !players.includes(player)) setPlayer(players[0]); }, [players, player]);
 
-  function clearWorkspace() { setTurns([]); setArtifacts([]); setActiveId(""); setSelected([]); setProcess([]); setError(""); setMobileView("conversation"); }
+  function clearWorkspace() { setTurns([]); setArtifacts([]); setActiveId(""); setSelected([]); setProcess([]); setError(""); setMobileView("conversation"); setReportOpen(false); setPreviewOpen(false); }
   async function choose(files?: File[]) {
     setBusy(true); setError("");
     try { const loaded = await upload(files); setDataset(loaded); setDataOpen(false); clearWorkspace(); }
@@ -368,19 +396,27 @@ export default function Home() {
   function closeArtifact(id: string) {
     setArtifacts(current => {
       const index = current.findIndex(item => item.id === id); const next = current.filter(item => item.id !== id);
-      if (id === activeId) setActiveId(next[Math.min(index, next.length-1)]?.id ?? ""); return next;
+      if (id === activeId) setActiveId(next[Math.min(index, next.length-1)]?.id ?? "");
+      if (!next.length) setMobileView("conversation"); return next;
     });
   }
+  function detectPlayer(question?: string) {
+    if (!question) return;
+    return [...players].sort((a,b) => b.length-a.length).find(name => question.toLocaleLowerCase().includes(name.toLocaleLowerCase()));
+  }
   function toggleReport(id: string) {
+    if (!selected.includes(id)) {
+      const detected = detectPlayer(turns.find(turn => turn.id === id)?.question);
+      if (detected) setPlayer(detected);
+    }
     setSelected(current => current.includes(id) ? current.filter(item => item !== id) : [...current, id]); setReportOpen(true);
   }
   function moveReport(id: string, direction: -1 | 1) {
     setSelected(current => { const index = current.indexOf(id); const target = index + direction; if (index < 0 || target < 0 || target >= current.length) return current; const next = [...current]; [next[index],next[target]]=[next[target],next[index]]; return next; });
   }
   function saveTemplate() {
-    const names = [...players].sort((a,b) => b.length-a.length);
     const recipes = selected.map(id => turns.find(turn => turn.id === id)?.question).filter(Boolean).map(question => {
-      const source = names.find(name => question!.toLowerCase().includes(name.toLowerCase()));
+      const source = detectPlayer(question);
       return source ? question!.replace(new RegExp(source.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"), "{{player}}") : question!;
     });
     if (!recipes.length) return;
@@ -398,8 +434,9 @@ export default function Home() {
   return <>
     <div className={`app-shell ${reportOpen ? "report-is-open" : ""}`} data-mobile-view={mobileView}>
       <header className="topbar"><div className="wordmark"><i>⌁</i><b>PITCHQUERY</b></div><div className="dataset-chip"><Database size={13}/><span>{dataset?.profile.file_name ?? "NO ACTIVE DATASET"}</span></div><div className="sync-state"><i/> {dataset ? "TRACKMAN READY" : "AWAITING DATA"}</div><button type="button" className="data-toggle" title="Data explorer" onClick={() => setDataOpen(!dataOpen)}><Database size={14}/> Data</button><button type="button" className="report-toggle" title="Report composer" onClick={() => setReportOpen(!reportOpen)}><PanelRight size={14}/> Report <em>{selected.length}</em></button><button type="button" className="new-session" title="Start a new session" onClick={reset}><RefreshCw size={14}/> New session</button></header>
-      <div className="app-grid"><DataRail dataset={dataset} busy={busy} open={dataOpen} choose={files => void choose(files)} chooseFolder={chooseFolder} close={() => setDataOpen(false)}/><nav className="mobile-modebar" aria-label="Workspace view"><button type="button" className={mobileView === "conversation" ? "active" : ""} onClick={() => setMobileView("conversation")}>Conversation</button><button type="button" className={mobileView === "artifact" ? "active" : ""} onClick={() => setMobileView("artifact")} disabled={!artifacts.length}>Artifact <em>{artifacts.length}</em></button></nav><ConversationPanel dataset={dataset} turns={turns} busy={busy} process={process} input={input} error={error} selected={selected} setInput={setInput} ask={value => void runQueries([value])} openArtifact={openArtifact} toggleReport={toggleReport}/><Workspace artifacts={artifacts} activeId={activeId} setActive={setActiveId} close={closeArtifact} toggleReport={toggleReport} selected={selected}/><ReportComposer open={reportOpen} turns={turns} selected={selected} templates={templates} templateId={templateId} templateName={templateName} player={player} players={players} busy={busy} setOpen={setReportOpen} setTemplateId={setTemplateId} setTemplateName={setTemplateName} setPlayer={setPlayer} remove={toggleReport} move={moveReport} saveTemplate={saveTemplate} runTemplate={runTemplate}/></div>
+      <div className="app-grid"><DataRail dataset={dataset} busy={busy} open={dataOpen} choose={files => void choose(files)} chooseFolder={chooseFolder} close={() => setDataOpen(false)}/><nav className="mobile-modebar" aria-label="Workspace view"><button type="button" className={mobileView === "conversation" ? "active" : ""} onClick={() => setMobileView("conversation")}>Conversation</button><button type="button" className={mobileView === "artifact" ? "active" : ""} onClick={() => setMobileView("artifact")} disabled={!artifacts.length}>Artifact <em>{artifacts.length}</em></button></nav><ConversationPanel dataset={dataset} turns={turns} busy={busy} process={process} input={input} error={error} selected={selected} setInput={setInput} ask={value => void runQueries([value])} openArtifact={openArtifact} toggleReport={toggleReport}/><Workspace artifacts={artifacts} activeId={activeId} setActive={setActiveId} close={closeArtifact} toggleReport={toggleReport} selected={selected}/><ReportComposer open={reportOpen} turns={turns} selected={selected} templates={templates} templateId={templateId} templateName={templateName} player={player} players={players} busy={busy} setOpen={setReportOpen} setTemplateId={id => { setTemplateId(id); const template = templates.find(item => item.id === id); if (template) setTemplateName(template.name); }} setTemplateName={setTemplateName} setPlayer={setPlayer} remove={toggleReport} move={moveReport} saveTemplate={saveTemplate} runTemplate={runTemplate} previewReport={() => setPreviewOpen(true)}/></div>
     </div>
+    <PdfPreview open={previewOpen} turns={turns} selected={selected} player={player} close={() => setPreviewOpen(false)}/>
     <PrintReport turns={turns} selected={selected} player={player}/>
   </>;
 }
