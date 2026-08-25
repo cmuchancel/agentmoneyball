@@ -29,3 +29,26 @@ def test_chart_tool_keeps_every_pitch_and_classifies_whiffs(tmp_path):
     assert summary["feature_counts"]["Outcome"]["Swinging strike"] == 1
     assert len(cache["request-1"]["chart"].points) == 3
     assert cache["request-1"]["chart"].points[-1].plate_x == -4.1
+
+
+def test_chart_tool_preserves_special_and_unrecognized_outcomes_without_other(tmp_path):
+    path = tmp_path / "pitches.csv"
+    pd.DataFrame({
+        "_source_row_id": range(6),
+        "PlateLocSide": [0.0] * 6,
+        "PlateLocHeight": [2.0] * 6,
+        "TaggedPitchType": ["Fastball", "Slider", "ChangeUp", "Curveball", "Cutter", "Splitter"],
+        "PitchCall": ["HitByPitch", "BallIntentional", "WildPitch", "PassedBall", "InPlay", "InPlay"],
+        "PlayResult": [None, None, None, None, "Error", "Single"],
+    }).to_csv(path, index=False)
+    cache = {}
+    tool = create_pitch_chart_tool(path, cache)
+
+    summary = json.loads(tool.invoke({"request_id": "special", "shape_by": "Outcome"}))
+    outcomes = summary["feature_counts"]["Outcome"]
+
+    assert outcomes == {
+        "Hit by pitch": 1, "Intentional ball": 1, "Wild pitch": 1, "Passed ball": 1,
+        "Reached on error": 1, "Hit": 1,
+    }
+    assert "Other" not in outcomes

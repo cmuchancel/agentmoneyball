@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -28,13 +29,22 @@ class PitchChartInput(BaseModel):
 
 def _outcome(frame: pd.DataFrame) -> pd.Series:
     calls = frame["PitchCall"].fillna("").astype(str)
-    result = calls.map({
+    known = calls.map({
         "BallCalled": "Ball", "BallinDirt": "Ball in dirt", "StrikeCalled": "Called strike",
         "StrikeSwinging": "Swinging strike", "FoulBall": "Foul", "HitByPitch": "Hit by pitch",
-    }).fillna("Other")
+        "BallIntentional": "Intentional ball", "InPlay": "In play",
+    })
+    raw = calls.map(lambda value: re.sub(r"(?<=[a-z])(?=[A-Z])", " ", value).strip().capitalize()
+                    if value.strip() else "Unclassified")
+    result = known.fillna(raw)
     if "PlayResult" in frame:
-        hits = calls.eq("InPlay") & frame["PlayResult"].isin(["Single", "Double", "Triple", "HomeRun"])
-        result = result.mask(hits, "Hit").mask(calls.eq("InPlay") & ~hits, "In play out")
+        play = frame["PlayResult"].fillna("").astype(str)
+        in_play = calls.eq("InPlay")
+        result = result.mask(in_play & play.isin(["Single", "Double", "Triple", "HomeRun"]), "Hit")
+        result = result.mask(in_play & play.eq("Out"), "In play out")
+        result = result.mask(in_play & play.eq("Sacrifice"), "Sacrifice")
+        result = result.mask(in_play & play.eq("FieldersChoice"), "Fielder's choice")
+        result = result.mask(in_play & play.eq("Error"), "Reached on error")
     return result
 
 

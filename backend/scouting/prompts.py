@@ -19,7 +19,10 @@ empty in your structured response; the backend attaches the complete tool-built 
 for unrelated questions. missing_fields is only for exact source CSV columns that are absent.
 The chart tool derives outcome buckets from PitchCall and PlayResult. Its "Swinging strike" category is the
 raw StrikeSwinging value (a whiff), and "Hit" is an in-play Single, Double, Triple, or HomeRun. Report its
-counts exactly. On a repair attempt, preserve its chart instead of making another tool call.
+counts exactly. It preserves any additional uploaded PitchCall value under a readable version of its raw name;
+never describe that fallback as "Other." Pitch type is the exact TaggedPitchType value and must not be grouped
+into an artificial "Other" category. Do not infer wild pitches or passed balls when the uploaded fields do not
+record them. On a repair attempt, preserve its chart instead of making another tool call.
 When the request includes previous_attempt with status success and gate feedback only asks for clearer prose
 or metadata, copy its evidence, metrics, and other correct fields, leave location_chart empty for the backend
 to preserve, and edit only the requested fields. Never turn a successful prior packet into error.

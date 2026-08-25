@@ -2,8 +2,11 @@ export type Profile = { dataset_id: string; file_name: string; rows: number; col
   pitchers?: number; batters?: number; pitcher_names: string[]; batter_names: string[];
   pitcher_teams: Record<string, string[]>; batter_teams: Record<string, string[]>; pitcher_aliases: Record<string, string>;
   batter_aliases: Record<string, string>; date_coverage?: string; warnings: string[] };
-export type Answer = { status: string; answer: string; filters: string[]; metric_definitions: string[];
+export type Metric = { name: string; value?: number | string | null; unit?: string | null;
+  numerator?: number | null; denominator?: number | null; group?: string | null };
+export type Answer = { status: string; answer: string; question_interpreted?: string; filters: string[]; metric_definitions: string[];
   method: string; sample_size?: number | null; chart_file?: string; location_chart?: LocationChart | null;
+  metrics?: Metric[]; result_table?: Record<string, unknown>[] | null;
   coverage: string; warnings: string[]; executed_code: string[];
   tools_used?: string[]; execution_evidence: string[]; daily_usage?: {date: string; tokens: number; limit: number; remaining: number} };
 export type ProgressEvent = { stage: string; detail?: string; attempt?: number; status?: "active" | "complete" | "revise" | "stopped" };
