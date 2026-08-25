@@ -35,9 +35,10 @@ def test_location_chart_supports_dynamic_color_and_shape_features():
                               features=[ChartFeature(name="pitch_type", value="Slider"),
                                         ChartFeature(name="outcome", value="Swinging strike"),
                                         ChartFeature(name="count", value="0-2")])])
-    result = packet(location_chart=chart)
+    result = packet(metrics=[], location_chart=chart)
     assert [encoding.channel for encoding in result.location_chart.encodings] == ["color", "shape"]
     assert result.location_chart.points[0].features[-1].value == "0-2"
+    assert deterministic_checks(result) == []
 
 
 def test_location_prompt_requires_partial_data_degradation():

@@ -124,7 +124,7 @@ def deterministic_checks(packet: AnalysisPacket, question: str = "") -> list[str
         return errors
     if not (packet.executed_code or packet.tools_used) or not packet.execution_evidence:
         errors.append("successful analysis requires a verified tool call or executed code and evidence")
-    if not packet.metrics and not packet.result_table:
+    if not packet.metrics and not packet.result_table and not packet.location_chart:
         errors.append("successful analysis has no result")
     for metric in packet.metrics:
         if metric.denominator == 0:

@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import {
-  BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Code2, Database, Download,
+  BarChart3, Check, ChevronDown, ChevronUp, Code2, Database, Download,
   FileBarChart, Files, FileText, FileWarning, Filter, FolderOpen, GripVertical, PanelRight,
   RefreshCw, Save, Send, Table2, Upload, Users, X,
 } from "lucide-react";
@@ -153,8 +153,11 @@ function Metrics({ detail }: { detail: Answer }) {
 function ResultTable({ rows }: { rows?: Record<string, unknown>[] | null }) {
   if (!rows?.length) return null;
   const columns = Object.keys(rows[0]).slice(0, 8);
+  const display = (value: unknown) => typeof value === "number"
+    ? value.toLocaleString(undefined, {maximumFractionDigits: 2})
+    : String(value ?? "—");
   return <div className="result-table-wrap"><table><thead><tr>{columns.map(column => <th key={column}>{titleCase(column)}</th>)}</tr></thead><tbody>
-    {rows.slice(0, 50).map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{String(row[column] ?? "—")}</td>)}</tr>)}
+    {rows.slice(0, 50).map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{display(row[column])}</td>)}</tr>)}
   </tbody></table>{rows.length > 50 && <small>Showing 50 of {rows.length.toLocaleString()} rows.</small>}</div>;
 }
 
@@ -208,6 +211,13 @@ function ArtifactPreview({ artifact }: { artifact: Artifact }) {
   </div>;
 }
 
+function CoachTurn({ text }: { text: string }) {
+  return <div className="coach-turn">
+    <div className="coach-mark"><i>C</i><span>Coach</span></div>
+    <div className="coach-bubble">{text}</div>
+  </div>;
+}
+
 function ConversationPanel({ dataset, turns, busy, process, input, error, selected, setInput, ask, openArtifact, toggleReport }: {
   dataset?: {dataset_id: string; profile: Profile}; turns: Turn[]; busy: boolean; process: ProgressEvent[]; input: string; error: string;
   selected: string[]; setInput: (value: string) => void; ask: (value: string) => void;
@@ -224,8 +234,8 @@ function ConversationPanel({ dataset, turns, busy, process, input, error, select
     <Conversation className="conversation"><ConversationContent className="conversation-content">
       {!turns.length ? <ConversationEmptyState title={dataset ? "Ask the data what matters." : "Load TrackMan data to begin."} description={dataset ? "Answers stay conversational. Charts, tables, and comparisons open beside the chat." : "Use a CSV, a folder of games, or the bundled demo."}>
         <div className="examples">{examples.map(([label, question]) => <button key={label} type="button" onClick={() => ask(question)} disabled={!dataset}><b>{label}</b><span>{question}</span></button>)}</div>
-      </ConversationEmptyState> : turns.map(turn => <Message from={turn.role} key={turn.id}><MessageContent variant={turn.role === "assistant" ? "flat" : "contained"}>
-        {turn.role === "assistant" ? <>
+      </ConversationEmptyState> : turns.map(turn => turn.role === "user" ? <CoachTurn text={turn.text} key={turn.id}/> : <Message from="assistant" key={turn.id}><MessageContent variant="flat">
+        <>
           <div className="assistant-mark"><i/> PitchQuery</div><Response>{turn.text}</Response>
           {artifactFrom(turn) && <button type="button" className="preview-button" onClick={() => openArtifact(turn)} aria-label={`Open ${artifactFrom(turn)?.title}`}><ArtifactPreview artifact={artifactFrom(turn)!}/></button>}
           <div className="response-actions">
@@ -233,7 +243,7 @@ function ConversationPanel({ dataset, turns, busy, process, input, error, select
             <button type="button" className={selected.includes(turn.id) ? "selected" : ""} onClick={() => toggleReport(turn.id)}><FileText size={13}/>{selected.includes(turn.id) ? "Added to report" : "Add to report"}{selected.includes(turn.id) && <Check size={12}/>}</button>
           </div>
           {turn.process?.length ? <ProcessTimeline steps={turn.process}/> : null}
-        </> : turn.text}
+        </>
       </MessageContent></Message>)}
       {busy && dataset && <Message from="assistant"><MessageContent variant="flat">{process.length ? <ProcessTimeline steps={process} live/> : <div className="progress"><i/><div><ShimmeringText text="Starting the analysis"/><small>Waiting for the first backend event.</small></div></div>}</MessageContent></Message>}
     </ConversationContent><ConversationScrollButton/></Conversation>
@@ -255,6 +265,18 @@ function Workspace({ artifacts, activeId, setActive, close, toggleReport, select
   </section>;
 }
 
+function ReportThumbnail({ turn, index }: { turn: Turn; index: number }) {
+  const artifact = artifactFrom(turn);
+  return <div className="page-thumb"><div className="page-paper">
+    <span>PITCHQUERY / ADVANCE REPORT</span>
+    <b>{artifact?.title || turn.question || "Scouting response"}</b>
+    <p>{turn.text}</p>
+    {artifact?.detail.location_chart ? <StrikeZone chart={artifact.detail.location_chart} compact/>
+      : artifact?.detail.result_table?.length ? <ResultTable rows={artifact.detail.result_table.slice(0, 5)}/>
+      : artifact ? <Metrics detail={artifact.detail}/> : null}
+  </div><small>Page {index+1}</small></div>;
+}
+
 function ReportComposer({ open, turns, selected, templates, templateId, templateName, player, players, busy, setOpen, setTemplateId, setTemplateName, setPlayer, remove, move, saveTemplate, runTemplate }: {
   open: boolean; turns: Turn[]; selected: string[]; templates: ReportTemplate[]; templateId: string; templateName: string; player: string; players: string[]; busy: boolean;
   setOpen: (open: boolean) => void; setTemplateId: (id: string) => void; setTemplateName: (name: string) => void; setPlayer: (name: string) => void;
@@ -267,8 +289,8 @@ function ReportComposer({ open, turns, selected, templates, templateId, template
       <label>Player variable</label><select value={player} onChange={event => setPlayer(event.target.value)}>{players.map(name => <option key={name}>{name}</option>)}</select>
       <button type="button" className="generate-report" onClick={runTemplate} disabled={!templateId || !player || busy}><RefreshCw size={14}/> Generate selected template for player</button><p className="composer-help">Templates store the original questions as recipes and replace the player with <code>{"{{player}}"}</code>.</p>
     </section>
-    <section className="composer-section"><div className="section-title"><label>Selected responses</label><small>{items.length} items</small></div>{items.length ? <div className="selected-items">{items.map((turn, index) => { const artifact = artifactFrom(turn); return <div key={turn.id}><GripVertical size={14}/><span>{artifact?.title || turn.question || "Scouting response"}</span><div><button type="button" onClick={() => move(turn.id,-1)} disabled={index===0} aria-label="Move up"><ChevronLeft size={13}/></button><button type="button" onClick={() => move(turn.id,1)} disabled={index===items.length-1} aria-label="Move down"><ChevronRight size={13}/></button><button type="button" onClick={() => remove(turn.id)} aria-label="Remove"><X size={13}/></button></div></div>; })}</div> : <div className="composer-empty">Use “Add to report” on any response.</div>}</section>
-    <section className="composer-section"><div className="section-title"><label>US Letter preview</label><small>{items.length} pages</small></div><div className="page-thumbnails">{items.map((turn,index) => <div className="page-thumb" key={turn.id}><div><span>PITCHQUERY / ADVANCE REPORT</span><b>{artifactFrom(turn)?.title || turn.question}</b><i/><i/><i/></div><small>Page {index+1}</small></div>)}</div></section></div>
+    <section className="composer-section"><div className="section-title"><label>Selected responses</label><small>{items.length} items</small></div>{items.length ? <div className="selected-items">{items.map((turn, index) => { const artifact = artifactFrom(turn); return <div key={turn.id}><GripVertical size={14}/><span>{artifact?.title || turn.question || "Scouting response"}</span><div><button type="button" onClick={() => move(turn.id,-1)} disabled={index===0} aria-label="Move up"><ChevronUp size={13}/></button><button type="button" onClick={() => move(turn.id,1)} disabled={index===items.length-1} aria-label="Move down"><ChevronDown size={13}/></button><button type="button" onClick={() => remove(turn.id)} aria-label="Remove"><X size={13}/></button></div></div>; })}</div> : <div className="composer-empty">Use “Add to report” on any response.</div>}</section>
+    <section className="composer-section"><div className="section-title"><label>US Letter preview</label><small>{items.length} pages</small></div><div className="page-thumbnails">{items.map((turn,index) => <ReportThumbnail turn={turn} index={index} key={turn.id}/>)}</div></section></div>
     <div className="composer-footer"><span>{items.length} selected · US Letter</span><button type="button" onClick={() => window.print()} disabled={!items.length}><Download size={15}/> Export PDF</button></div>
   </aside>;
 }
@@ -295,6 +317,7 @@ export default function Home() {
   const [templateId, setTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("Pitcher Advance Report");
   const [player, setPlayer] = useState("");
+  const [mobileView, setMobileView] = useState<"conversation" | "artifact">("conversation");
 
   useEffect(() => {
     const id = sessionStorage.getItem("pitchquery-thread") ?? crypto.randomUUID();
@@ -305,7 +328,7 @@ export default function Home() {
   const players = useMemo(() => dataset ? [...new Set([...dataset.profile.pitcher_names, ...dataset.profile.batter_names])].sort() : [], [dataset]);
   useEffect(() => { if (players.length && !players.includes(player)) setPlayer(players[0]); }, [players, player]);
 
-  function clearWorkspace() { setTurns([]); setArtifacts([]); setActiveId(""); setSelected([]); setProcess([]); setError(""); }
+  function clearWorkspace() { setTurns([]); setArtifacts([]); setActiveId(""); setSelected([]); setProcess([]); setError(""); setMobileView("conversation"); }
   async function choose(files?: File[]) {
     setBusy(true); setError("");
     try { const loaded = await upload(files); setDataset(loaded); setDataOpen(false); clearWorkspace(); }
@@ -323,7 +346,7 @@ export default function Home() {
   }
   async function runQueries(queries: string[], addResultsToReport = false) {
     if (!dataset || busy || !queries.length) return;
-    setBusy(true); setError(""); let history = turns.slice(-6).map(turn => ({role: turn.role, content: turn.text}));
+    setBusy(true); setError(""); setMobileView("conversation"); let history = turns.slice(-6).map(turn => ({role: turn.role, content: turn.text}));
     try {
       for (const question of queries) {
         const userTurn: Turn = {id: crypto.randomUUID(), role:"user", text:question};
@@ -341,7 +364,7 @@ export default function Home() {
   function reset() {
     const id = crypto.randomUUID(); sessionStorage.setItem("pitchquery-thread", id); setThread(id); clearWorkspace();
   }
-  function openArtifact(turn: Turn) { registerArtifact(turn); }
+  function openArtifact(turn: Turn) { registerArtifact(turn); setMobileView("artifact"); }
   function closeArtifact(id: string) {
     setArtifacts(current => {
       const index = current.findIndex(item => item.id === id); const next = current.filter(item => item.id !== id);
@@ -361,7 +384,9 @@ export default function Home() {
       return source ? question!.replace(new RegExp(source.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"), "{{player}}") : question!;
     });
     if (!recipes.length) return;
-    const template: ReportTemplate = {id: templateId || crypto.randomUUID(), name: templateName.trim() || "Scouting Report", recipes};
+    const name = templateName.trim() || "Scouting Report";
+    const sameName = templates.find(item => item.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+    const template: ReportTemplate = {id: templateId || sameName?.id || crypto.randomUUID(), name, recipes};
     const next = templates.some(item => item.id === template.id) ? templates.map(item => item.id === template.id ? template : item) : [...templates, template];
     setTemplates(next); setTemplateId(template.id); localStorage.setItem(TEMPLATE_KEY, JSON.stringify(next));
   }
@@ -371,9 +396,9 @@ export default function Home() {
   }
 
   return <>
-    <div className={`app-shell ${reportOpen ? "report-is-open" : ""}`}>
-      <header className="topbar"><div className="wordmark"><i>⌁</i><b>PITCHQUERY</b></div><div className="dataset-chip"><Database size={13}/><span>{dataset?.profile.file_name ?? "NO ACTIVE DATASET"}</span></div><div className="sync-state"><i/> {dataset ? "TRACKMAN READY" : "AWAITING DATA"}</div><button type="button" className="data-toggle" onClick={() => setDataOpen(!dataOpen)}><Database size={14}/> Data</button><button type="button" className="report-toggle" onClick={() => setReportOpen(!reportOpen)}><PanelRight size={14}/> Report <em>{selected.length}</em></button><button type="button" className="new-session" onClick={reset}><RefreshCw size={14}/> New session</button></header>
-      <div className="app-grid"><DataRail dataset={dataset} busy={busy} open={dataOpen} choose={files => void choose(files)} chooseFolder={chooseFolder} close={() => setDataOpen(false)}/><ConversationPanel dataset={dataset} turns={turns} busy={busy} process={process} input={input} error={error} selected={selected} setInput={setInput} ask={value => void runQueries([value])} openArtifact={openArtifact} toggleReport={toggleReport}/><Workspace artifacts={artifacts} activeId={activeId} setActive={setActiveId} close={closeArtifact} toggleReport={toggleReport} selected={selected}/><ReportComposer open={reportOpen} turns={turns} selected={selected} templates={templates} templateId={templateId} templateName={templateName} player={player} players={players} busy={busy} setOpen={setReportOpen} setTemplateId={setTemplateId} setTemplateName={setTemplateName} setPlayer={setPlayer} remove={toggleReport} move={moveReport} saveTemplate={saveTemplate} runTemplate={runTemplate}/></div>
+    <div className={`app-shell ${reportOpen ? "report-is-open" : ""}`} data-mobile-view={mobileView}>
+      <header className="topbar"><div className="wordmark"><i>⌁</i><b>PITCHQUERY</b></div><div className="dataset-chip"><Database size={13}/><span>{dataset?.profile.file_name ?? "NO ACTIVE DATASET"}</span></div><div className="sync-state"><i/> {dataset ? "TRACKMAN READY" : "AWAITING DATA"}</div><button type="button" className="data-toggle" title="Data explorer" onClick={() => setDataOpen(!dataOpen)}><Database size={14}/> Data</button><button type="button" className="report-toggle" title="Report composer" onClick={() => setReportOpen(!reportOpen)}><PanelRight size={14}/> Report <em>{selected.length}</em></button><button type="button" className="new-session" title="Start a new session" onClick={reset}><RefreshCw size={14}/> New session</button></header>
+      <div className="app-grid"><DataRail dataset={dataset} busy={busy} open={dataOpen} choose={files => void choose(files)} chooseFolder={chooseFolder} close={() => setDataOpen(false)}/><nav className="mobile-modebar" aria-label="Workspace view"><button type="button" className={mobileView === "conversation" ? "active" : ""} onClick={() => setMobileView("conversation")}>Conversation</button><button type="button" className={mobileView === "artifact" ? "active" : ""} onClick={() => setMobileView("artifact")} disabled={!artifacts.length}>Artifact <em>{artifacts.length}</em></button></nav><ConversationPanel dataset={dataset} turns={turns} busy={busy} process={process} input={input} error={error} selected={selected} setInput={setInput} ask={value => void runQueries([value])} openArtifact={openArtifact} toggleReport={toggleReport}/><Workspace artifacts={artifacts} activeId={activeId} setActive={setActiveId} close={closeArtifact} toggleReport={toggleReport} selected={selected}/><ReportComposer open={reportOpen} turns={turns} selected={selected} templates={templates} templateId={templateId} templateName={templateName} player={player} players={players} busy={busy} setOpen={setReportOpen} setTemplateId={setTemplateId} setTemplateName={setTemplateName} setPlayer={setPlayer} remove={toggleReport} move={moveReport} saveTemplate={saveTemplate} runTemplate={runTemplate}/></div>
     </div>
     <PrintReport turns={turns} selected={selected} player={player}/>
   </>;
