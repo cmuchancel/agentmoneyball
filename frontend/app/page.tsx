@@ -178,12 +178,12 @@ function GameFiles({ profile }: { profile: Profile }) {
   return <Collapsible.Root className="rail-disclosure" defaultOpen><Collapsible.Trigger><span><Files size={13}/> Game files</span><small>{profile.source_files.length}</small><ChevronDown size={13}/></Collapsible.Trigger><Collapsible.Content className="game-list">{profile.source_files.map((file, index) => <div key={file}><i>{String(index+1).padStart(2,"0")}</i><span>{file}</span></div>)}</Collapsible.Content></Collapsible.Root>;
 }
 
-function DataRail({ dataset, busy, choose, chooseFolder }: {
-  dataset?: {dataset_id: string; profile: Profile}; busy: boolean;
-  choose: (files?: File[]) => void; chooseFolder: (files: FileList | null) => void;
+function DataRail({ dataset, busy, open, choose, chooseFolder, close }: {
+  dataset?: {dataset_id: string; profile: Profile}; busy: boolean; open: boolean;
+  choose: (files?: File[]) => void; chooseFolder: (files: FileList | null) => void; close: () => void;
 }) {
   const profile = dataset?.profile;
-  return <aside className="data-rail"><div className="rail-label">Data explorer</div>
+  return <aside className={`data-rail ${open ? "open" : ""}`}><div className="rail-mobile-head"><b>Data explorer</b><button type="button" onClick={close} aria-label="Close data explorer"><X size={16}/></button></div><div className="rail-label">Data explorer</div>
     <div className="upload-stack">
       <label><Upload size={14}/> Upload CSV<input type="file" accept=".csv,text/csv" hidden onChange={event => event.target.files?.[0] && choose([event.target.files[0]])}/></label>
       <label><FolderOpen size={14}/> Upload folder<input type="file" accept=".csv,text/csv" multiple hidden {...({webkitdirectory:"",directory:""} as Record<string,string>)} onChange={event => chooseFolder(event.target.files)}/></label>
@@ -289,6 +289,7 @@ export default function Home() {
   const [process, setProcess] = useState<ProgressEvent[]>([]);
   const [error, setError] = useState("");
   const [thread, setThread] = useState("");
+  const [dataOpen, setDataOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
   const [templateId, setTemplateId] = useState("");
@@ -307,7 +308,7 @@ export default function Home() {
   function clearWorkspace() { setTurns([]); setArtifacts([]); setActiveId(""); setSelected([]); setProcess([]); setError(""); }
   async function choose(files?: File[]) {
     setBusy(true); setError("");
-    try { const loaded = await upload(files); setDataset(loaded); clearWorkspace(); }
+    try { const loaded = await upload(files); setDataset(loaded); setDataOpen(false); clearWorkspace(); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Upload failed"); }
     finally { setBusy(false); }
   }
@@ -371,8 +372,8 @@ export default function Home() {
 
   return <>
     <div className={`app-shell ${reportOpen ? "report-is-open" : ""}`}>
-      <header className="topbar"><div className="wordmark"><i>⌁</i><b>PITCHQUERY</b></div><div className="dataset-chip"><Database size={13}/><span>{dataset?.profile.file_name ?? "NO ACTIVE DATASET"}</span></div><div className="sync-state"><i/> {dataset ? "TRACKMAN READY" : "AWAITING DATA"}</div><button type="button" className="report-toggle" onClick={() => setReportOpen(!reportOpen)}><PanelRight size={14}/> Report <em>{selected.length}</em></button><button type="button" className="new-session" onClick={reset}><RefreshCw size={14}/> New session</button></header>
-      <div className="app-grid"><DataRail dataset={dataset} busy={busy} choose={files => void choose(files)} chooseFolder={chooseFolder}/><ConversationPanel dataset={dataset} turns={turns} busy={busy} process={process} input={input} error={error} selected={selected} setInput={setInput} ask={value => void runQueries([value])} openArtifact={openArtifact} toggleReport={toggleReport}/><Workspace artifacts={artifacts} activeId={activeId} setActive={setActiveId} close={closeArtifact} toggleReport={toggleReport} selected={selected}/><ReportComposer open={reportOpen} turns={turns} selected={selected} templates={templates} templateId={templateId} templateName={templateName} player={player} players={players} busy={busy} setOpen={setReportOpen} setTemplateId={setTemplateId} setTemplateName={setTemplateName} setPlayer={setPlayer} remove={toggleReport} move={moveReport} saveTemplate={saveTemplate} runTemplate={runTemplate}/></div>
+      <header className="topbar"><div className="wordmark"><i>⌁</i><b>PITCHQUERY</b></div><div className="dataset-chip"><Database size={13}/><span>{dataset?.profile.file_name ?? "NO ACTIVE DATASET"}</span></div><div className="sync-state"><i/> {dataset ? "TRACKMAN READY" : "AWAITING DATA"}</div><button type="button" className="data-toggle" onClick={() => setDataOpen(!dataOpen)}><Database size={14}/> Data</button><button type="button" className="report-toggle" onClick={() => setReportOpen(!reportOpen)}><PanelRight size={14}/> Report <em>{selected.length}</em></button><button type="button" className="new-session" onClick={reset}><RefreshCw size={14}/> New session</button></header>
+      <div className="app-grid"><DataRail dataset={dataset} busy={busy} open={dataOpen} choose={files => void choose(files)} chooseFolder={chooseFolder} close={() => setDataOpen(false)}/><ConversationPanel dataset={dataset} turns={turns} busy={busy} process={process} input={input} error={error} selected={selected} setInput={setInput} ask={value => void runQueries([value])} openArtifact={openArtifact} toggleReport={toggleReport}/><Workspace artifacts={artifacts} activeId={activeId} setActive={setActiveId} close={closeArtifact} toggleReport={toggleReport} selected={selected}/><ReportComposer open={reportOpen} turns={turns} selected={selected} templates={templates} templateId={templateId} templateName={templateName} player={player} players={players} busy={busy} setOpen={setReportOpen} setTemplateId={setTemplateId} setTemplateName={setTemplateName} setPlayer={setPlayer} remove={toggleReport} move={moveReport} saveTemplate={saveTemplate} runTemplate={runTemplate}/></div>
     </div>
     <PrintReport turns={turns} selected={selected} player={player}/>
   </>;
