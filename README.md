@@ -89,7 +89,7 @@ These six prompts are intentionally scoped to fields available in the demo datas
 ### 1. Whiff location map
 
 ~~~text
-For pitcher Caleb Archer, plot every swing-and-miss location on a catcher-view strike zone. Color the pitches by pitch type and summarize the total by pitch type.
+For pitcher Caleb Archer, plot every swing-and-miss pitch location. Color each point by pitch type and report total whiffs by pitch type.
 ~~~
 
 This should produce a location chart and a pitch-type breakdown. The known result is 25 whiffs: 20 changeups, 3 fastballs, and 2 sliders.

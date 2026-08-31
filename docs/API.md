@@ -64,7 +64,7 @@ Request:
 {
   "thread_id": "browser-thread-id",
   "dataset_id": "content-derived-id",
-  "message": "For pitcher Caleb Archer, plot every swing-and-miss location on a catcher-view strike zone. Color the pitches by pitch type and summarize the total by pitch type.",
+  "message": "For pitcher Caleb Archer, plot every swing-and-miss pitch location. Color each point by pitch type and report total whiffs by pitch type.",
   "messages": []
 }
 ~~~

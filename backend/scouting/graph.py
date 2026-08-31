@@ -181,11 +181,14 @@ def live_services(file_id: str, path: Path, profile: dict[str, Any]) -> tuple[Ru
         packet = AnalysisPacket.model_validate(result["structured_response"])
         built = chart_cache.pop(request_id, None)
         recovery = _whiff_location_recovery(state["question"], profile)
-        if not built and recovery:
-            chart_tool.invoke({"request_id": request_id, **{key: value for key, value in recovery.items() if key != "pitcher"}})
-            built = chart_cache.pop(request_id, None)
-            if built:
-                answer, table = _whiff_answer(recovery["pitcher"], built["summary"])
+        if recovery:
+            verified_request_id = f"{request_id}-verified"
+            chart_tool.invoke({"request_id": verified_request_id,
+                               **{key: value for key, value in recovery.items() if key != "pitcher"}})
+            verified = chart_cache.pop(verified_request_id, None)
+            if verified:
+                built = verified
+                answer, table = _whiff_answer(recovery["pitcher"], verified["summary"])
                 packet = packet.model_copy(update={
                     "status": "success",
                     "question_interpreted": state["question"],

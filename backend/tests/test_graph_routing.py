@@ -60,8 +60,8 @@ def test_repair_prompt_reuses_successful_previous_packet():
 
 def test_documented_whiff_map_recovers_the_pitcher_identity():
     spec = _whiff_location_recovery(
-        "For pitcher Caleb Archer, plot every swing-and-miss location on a catcher-view strike zone. "
-        "Color the pitches by pitch type and summarize the total by pitch type.",
+        "For pitcher Caleb Archer, plot every swing-and-miss pitch location. "
+        "Color each point by pitch type and report total whiffs by pitch type.",
         {"pitcher_names": ["Ben Ellis", "Caleb Archer"]},
     )
     assert spec == {

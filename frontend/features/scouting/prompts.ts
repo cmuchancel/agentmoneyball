@@ -9,7 +9,7 @@ export function conversationPrompts(pitcher: string): PromptExample[] {
     },
     {
       label: "Whiff locations",
-      question: `For pitcher ${pitcher}, plot every swing-and-miss location on a catcher-view strike zone. Color the pitches by pitch type and summarize the total by pitch type.`,
+      question: `For pitcher ${pitcher}, plot every swing-and-miss pitch location. Color each point by pitch type and report total whiffs by pitch type.`,
     },
     {
       label: "Complete arsenal",
