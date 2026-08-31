@@ -89,7 +89,7 @@ These six prompts are intentionally scoped to fields available in the demo datas
 ### 1. Whiff location map
 
 ~~~text
-Where does Caleb Archer get swings and misses? Render the strike zone and color by pitch type.
+For pitcher Caleb Archer, plot every swing-and-miss location on a catcher-view strike zone. Color the pitches by pitch type and summarize the total by pitch type.
 ~~~
 
 This should produce a location chart and a pitch-type breakdown. The known result is 25 whiffs: 20 changeups, 3 fastballs, and 2 sliders.
@@ -97,31 +97,31 @@ This should produce a location chart and a pitch-type breakdown. The known resul
 ### 2. Two-strike location plan
 
 ~~~text
-Show Caleb Archer's pitch locations in 0-2 counts, colored by pitch type and shaped by pitch outcome.
+For pitcher Caleb Archer in 0-2 counts, plot every pitch with a valid location on a catcher-view strike zone. Color by pitch type and use marker shape for pitch outcome.
 ~~~
 
 ### 3. Complete arsenal
 
 ~~~text
-Summarize Caleb Archer's arsenal by pitch type, including usage, velocity, spin rate, horizontal movement, and induced vertical movement.
+For pitcher Caleb Archer, summarize his complete arsenal by pitch type. Report pitch count, usage percentage, average release speed in mph, average spin rate in rpm, average horizontal break in inches, and average induced vertical break in inches.
 ~~~
 
 ### 4. Fastball/changeup comparison
 
 ~~~text
-Compare Caleb Archer's fastball and changeup velocity, movement, and results. Explain which differences are most meaningful.
+For pitcher Caleb Archer, compare his fastball and changeup. Report pitch count, average velocity, horizontal break, induced vertical break, swinging strikes, called strikes, and hits allowed. Then explain the most meaningful differences.
 ~~~
 
 ### 5. Fastball velocity leaderboard
 
 ~~~text
-Rank pitchers with at least 25 fastballs by average fastball velocity. Show pitch count and velocity.
+Among pitchers with at least 25 fastballs, rank average fastball velocity from highest to lowest. Report each pitcher's fastball count and average velocity in mph.
 ~~~
 
 ### 6. Evidence-boundary demonstration
 
 ~~~text
-How does Caleb Archer perform with runners in scoring position by inning and score differential?
+For pitcher Caleb Archer, compare performance with runners in scoring position by inning and score differential. If the required baserunner or score-state fields are unavailable, explicitly identify the missing evidence instead of estimating.
 ~~~
 
 The demo data does not contain the required baserunner and score state. A correct result explains that the question cannot be answered from the available evidence.

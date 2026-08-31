@@ -1,4 +1,4 @@
-from scouting.graph import analysis_prompt, build_graph
+from scouting.graph import _whiff_answer, _whiff_location_recovery, analysis_prompt, build_graph
 from scouting.schemas import AnalysisPacket, GateVerdict, Metric
 
 
@@ -56,6 +56,45 @@ def test_repair_prompt_reuses_successful_previous_packet():
                               "analysis_packet": prior}, {"rows": 4})
     assert prompt["previous_attempt"] == prior
     assert "backend attaches and preserves" in prompt["instruction"]
+
+
+def test_documented_whiff_map_recovers_the_pitcher_identity():
+    spec = _whiff_location_recovery(
+        "For pitcher Caleb Archer, plot every swing-and-miss location on a catcher-view strike zone. "
+        "Color the pitches by pitch type and summarize the total by pitch type.",
+        {"pitcher_names": ["Ben Ellis", "Caleb Archer"]},
+    )
+    assert spec == {
+        "filters": [
+            {"column": "PitcherName", "operator": "eq", "value": "Caleb Archer"},
+            {"column": "PitchCall", "operator": "eq", "value": "StrikeSwinging"},
+        ],
+        "color_by": "TaggedPitchType",
+        "title": "Caleb Archer swings and misses by pitch type",
+        "pitcher": "Caleb Archer",
+    }
+
+
+def test_whiff_map_recovery_does_not_override_an_explicit_batter_question():
+    spec = _whiff_location_recovery(
+        "As a batter, where does Caleb Archer swing and miss? Plot by pitch type.",
+        {"pitcher_names": ["Caleb Archer"]},
+    )
+    assert spec is None
+
+
+def test_whiff_recovery_answer_uses_executed_chart_counts():
+    answer, table = _whiff_answer("Caleb Archer", {
+        "matching_pitches": 25,
+        "valid_location_pitches": 25,
+        "feature_counts": {"TaggedPitchType": {"Fastball": 3, "ChangeUp": 20, "Slider": 2}},
+    })
+    assert "25 swings and misses" in answer
+    assert table == [
+        {"Tagged Pitch Type": "ChangeUp", "Whiffs": 20},
+        {"Tagged Pitch Type": "Fastball", "Whiffs": 3},
+        {"Tagged Pitch Type": "Slider", "Whiffs": 2},
+    ]
 
 
 def test_gate_cannot_answer_repairs_an_incomplete_successful_packet():

@@ -5,15 +5,15 @@ export function conversationPrompts(pitcher: string): PromptExample[] {
   return [
     {
       label: "0–2 location map",
-      question: `Show ${pitcher}'s pitch locations in 0-2 counts, colored by pitch type and shaped by pitch outcome.`,
+      question: `For pitcher ${pitcher} in 0–2 counts, plot every pitch with a valid location on a catcher-view strike zone. Color by pitch type and use marker shape for pitch outcome.`,
     },
     {
       label: "Whiff locations",
-      question: `Where does ${pitcher} get swings and misses? Render the strike zone and color by pitch type.`,
+      question: `For pitcher ${pitcher}, plot every swing-and-miss location on a catcher-view strike zone. Color the pitches by pitch type and summarize the total by pitch type.`,
     },
     {
-      label: "Pitch mix",
-      question: `How does ${pitcher}'s pitch mix change by count?`,
+      label: "Complete arsenal",
+      question: `For pitcher ${pitcher}, summarize his complete arsenal by pitch type. Report pitch count, usage percentage, average release speed, average spin rate, average horizontal break, and average induced vertical break.`,
     },
   ];
 }

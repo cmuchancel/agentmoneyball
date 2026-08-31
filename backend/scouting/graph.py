@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import uuid
 from collections.abc import Callable
@@ -104,6 +105,51 @@ def _text(packet: AnalysisPacket) -> str:
     return answer + (f"\n\n**Caution:** {'; '.join(packet.warnings)}" if packet.warnings else "")
 
 
+def _whiff_location_recovery(question: str, profile: dict[str, Any]) -> dict[str, Any] | None:
+    """Return a deterministic spec for the documented pitcher whiff-location request.
+
+    The model occasionally selects BatterName for the pitcher named in an otherwise valid
+    whiff-map request. Recovery is deliberately narrow so explicit batter questions and
+    differently scoped location analyses remain under the evidence-gated analyst.
+    """
+    normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", question.casefold()).split())
+    requests_whiffs = bool(re.search(r"\bwhiffs?\b|swing(?:s|ing)?\s+(?:and\s+)?miss", normalized))
+    requests_location = any(term in normalized for term in ("location", "strike zone", "render", "plot", "chart"))
+    if not (requests_whiffs and requests_location and "pitch type" in normalized):
+        return None
+    if any(term in normalized for term in ("as a batter", "as a hitter", "batter's", "hitter's")):
+        return None
+    names = sorted((str(name) for name in profile.get("pitcher_names", [])), key=len, reverse=True)
+    pitcher = next((name for name in names if name.casefold() in normalized), None)
+    if not pitcher:
+        return None
+    return {
+        "filters": [
+            {"column": "PitcherName", "operator": "eq", "value": pitcher},
+            {"column": "PitchCall", "operator": "eq", "value": "StrikeSwinging"},
+        ],
+        "color_by": "TaggedPitchType",
+        "title": f"{pitcher} swings and misses by pitch type",
+        "pitcher": pitcher,
+    }
+
+
+def _whiff_answer(pitcher: str, summary: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
+    counts = summary.get("feature_counts", {}).get("TaggedPitchType", {})
+    ordered = sorted(counts.items(), key=lambda item: (-int(item[1]), str(item[0])))
+    table = [{"Tagged Pitch Type": pitch_type, "Whiffs": int(count)} for pitch_type, count in ordered]
+    parts = [f"{count} {str(pitch_type).casefold()}{'' if int(count) == 1 else 's'}"
+             for pitch_type, count in ordered]
+    breakdown = ", ".join(parts[:-1]) + (f", and {parts[-1]}" if len(parts) > 1 else parts[0] if parts else "")
+    total = int(summary["matching_pitches"])
+    valid = int(summary["valid_location_pitches"])
+    answer = f"{pitcher} generated {total} swings and misses"
+    if breakdown:
+        answer += f": {breakdown}"
+    answer += f". The strike-zone chart includes all {valid} pitches with valid locations and is colored by pitch type."
+    return answer, table
+
+
 def live_services(file_id: str, path: Path, profile: dict[str, Any]) -> tuple[Runner, Gate]:
     """Create the only two model calls: analyst agent and semantic gate."""
     model_name = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
@@ -134,6 +180,28 @@ def live_services(file_id: str, path: Path, profile: dict[str, Any]) -> tuple[Ru
         )
         packet = AnalysisPacket.model_validate(result["structured_response"])
         built = chart_cache.pop(request_id, None)
+        recovery = _whiff_location_recovery(state["question"], profile)
+        if not built and recovery:
+            chart_tool.invoke({"request_id": request_id, **{key: value for key, value in recovery.items() if key != "pitcher"}})
+            built = chart_cache.pop(request_id, None)
+            if built:
+                answer, table = _whiff_answer(recovery["pitcher"], built["summary"])
+                packet = packet.model_copy(update={
+                    "status": "success",
+                    "question_interpreted": state["question"],
+                    "answer_summary": answer,
+                    "method": "Deterministic TrackMan pitch-location filter",
+                    "filters": [f"PitcherName == {recovery['pitcher']}", "PitchCall == StrikeSwinging"],
+                    "metric_definitions": ["Swing and miss = PitchCall StrikeSwinging"],
+                    "metrics": [],
+                    "result_table": table,
+                    "location_chart": None,
+                    "chart_file": None,
+                    "warnings": [],
+                    "executed_code": [],
+                    "execution_evidence": [],
+                    "missing_fields": [],
+                })
         previous = state.get("analysis_packet", {})
         prior_chart = previous.get("location_chart") if state.get("gate_feedback") and previous.get("status") == "success" else None
         if built or prior_chart:
