@@ -26,6 +26,17 @@ def test_bad_rate_and_missing_evidence_fail():
     assert any("disagrees" in error for error in result)
 
 
+def test_fraction_bounds_apply_to_rates_but_not_averages():
+    invalid_rate = packet(metrics=[Metric(name="rate", value=150, unit="percent",
+                                          numerator=3, denominator=2)])
+    assert "rate: numerator exceeds denominator" in deterministic_checks(invalid_rate)
+
+    average = packet(answer_summary="Average velocity was 95.1 mph.",
+                     metrics=[Metric(name="average velocity", value=95.1, unit="mph",
+                                     numerator=7893.3, denominator=83)])
+    assert deterministic_checks(average) == []
+
+
 def test_location_chart_supports_dynamic_color_and_shape_features():
     chart = LocationChart(
         title="0-2 locations",

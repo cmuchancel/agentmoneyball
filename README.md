@@ -109,13 +109,13 @@ For pitcher Caleb Archer, summarize his complete arsenal by pitch type. Report p
 ### 4. Fastball/changeup comparison
 
 ~~~text
-For pitcher Caleb Archer, compare his fastball and changeup. Report pitch count, average velocity, horizontal break, induced vertical break, swinging strikes, called strikes, and hits allowed. Then explain the most meaningful differences.
+For pitcher Caleb Archer, compare his fastball and changeup using average velocity, horizontal break, induced vertical break, swinging strikes, and hits allowed. Present the evidence in a table, then end with the two most meaningful scouting takeaways.
 ~~~
 
 ### 5. Fastball velocity leaderboard
 
 ~~~text
-Among pitchers with at least 25 fastballs, rank average fastball velocity from highest to lowest. Report each pitcher's fastball count and average velocity in mph.
+Which pitcher has the highest average fastball velocity among pitchers with at least 25 fastballs? Answer with the leader in one sentence, then return a descending table with pitcher name, fastball count, and average velocity in mph.
 ~~~
 
 ### 6. Evidence-boundary demonstration

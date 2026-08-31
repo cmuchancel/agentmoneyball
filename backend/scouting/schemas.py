@@ -130,7 +130,8 @@ def deterministic_checks(packet: AnalysisPacket, question: str = "") -> list[str
         if metric.denominator == 0:
             errors.append(f"{metric.name}: denominator is zero")
         if (
-            metric.numerator is not None
+            metric.unit in {"percent", "%"}
+            and metric.numerator is not None
             and metric.denominator is not None
             and metric.numerator > metric.denominator
         ):
