@@ -84,6 +84,8 @@ Open [http://localhost:3000](http://localhost:3000). The 21-game demo dataset lo
 
 ## Prompts to copy and paste
 
+> **Capability walkthrough:** To see Agent Moneyball's capabilities, follow the instructions below in order. Run all six prompts, build and export the three-response Caleb Archer report, and then apply the saved report template to Finn Mercer.
+
 The bundled names are stable fictional aliases attached to the original source IDs. Caleb Archer is a useful pitcher for a reproducible walkthrough.
 
 These six prompts are intentionally scoped to fields available in the demo dataset. They have also been exercised against the production deployment.
