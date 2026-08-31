@@ -5,7 +5,7 @@ export function conversationPrompts(pitcher: string): PromptExample[] {
   return [
     {
       label: "0–2 location map",
-      question: `For pitcher ${pitcher} in 0–2 counts, plot every pitch with a valid location on a catcher-view strike zone. Color by pitch type and use marker shape for pitch outcome.`,
+      question: `For pitcher ${pitcher} in 0–2 counts, plot his pitch locations on a strike-zone chart. Color by pitch type and use marker shape for pitch outcome.`,
     },
     {
       label: "Whiff locations",

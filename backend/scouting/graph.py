@@ -146,7 +146,7 @@ def _whiff_answer(pitcher: str, summary: dict[str, Any]) -> tuple[str, list[dict
     answer = f"{pitcher} generated {total} swings and misses"
     if breakdown:
         answer += f": {breakdown}"
-    answer += f". The strike-zone chart includes all {valid} pitches with valid locations and is colored by pitch type."
+    answer += f". The strike-zone chart plots all {valid} pitches and is colored by pitch type."
     return answer, table
 
 
@@ -216,9 +216,9 @@ def live_services(file_id: str, path: Path, profile: dict[str, Any]) -> tuple[Ru
                 summary = built["summary"]
                 evidence = [*evidence, "build_pitch_chart: " + json.dumps(summary)]
                 updates.update(sample_size=summary["matching_pitches"],
-                               coverage=f"Plotted all {summary['valid_location_pitches']} valid-location pitches "
-                                        f"from {summary['matching_pitches']} matching pitches; "
-                                        f"{summary['missing_location_pitches']} lacked a usable location.")
+                               coverage=f"Plotted {summary['valid_location_pitches']} of "
+                                        f"{summary['matching_pitches']} matching pitches; "
+                                        f"{summary['missing_location_pitches']} had no numeric plate location.")
             packet = packet.model_copy(update={"execution_evidence": evidence, **updates})
         return packet
 
@@ -272,7 +272,7 @@ def build_graph(run: Runner, gate: Gate):
             )
         packet_error = error or (packet.warnings[0] if packet.status == "error" and packet.warnings else "")
         if packet.location_chart and "build_pitch_chart" in packet.tools_used:
-            report("Pitch map assembled", f"Loaded all {len(packet.location_chart.points):,} valid pitch locations from the dataset.",
+            report("Pitch map assembled", f"Loaded all {len(packet.location_chart.points):,} plotted pitch locations from the dataset.",
                    attempt, "complete")
         report("Analysis attempt failed" if packet_error else "Analysis attempt complete",
                short(packet_error) if packet_error else f"Attempt {attempt} returned a structured result for verification.",

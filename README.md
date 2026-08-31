@@ -97,7 +97,7 @@ This should produce a location chart and a pitch-type breakdown. The known resul
 ### 2. Two-strike location plan
 
 ~~~text
-For pitcher Caleb Archer in 0-2 counts, plot every pitch with a valid location on a catcher-view strike zone. Color by pitch type and use marker shape for pitch outcome.
+For pitcher Caleb Archer in 0-2 counts, plot his pitch locations on a strike-zone chart. Color by pitch type and use marker shape for pitch outcome.
 ~~~
 
 ### 3. Complete arsenal
@@ -121,10 +121,10 @@ Which pitcher has the highest average fastball velocity among pitchers with at l
 ### 6. Evidence-boundary demonstration
 
 ~~~text
-For pitcher Caleb Archer, compare performance with runners in scoring position by inning and score differential. If the required baserunner or score-state fields are unavailable, explicitly identify the missing evidence instead of estimating.
+For pitcher Caleb Archer, how does his performance with runners in scoring position vary by inning and score differential?
 ~~~
 
-The demo data does not contain the required baserunner and score state. A correct result explains that the question cannot be answered from the available evidence.
+The demo dataset does not record baserunner or score state, so the assistant should explain that it cannot make this comparison.
 
 ## Build and export a report
 
