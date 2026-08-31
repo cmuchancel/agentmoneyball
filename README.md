@@ -10,14 +10,16 @@ The hosted demo is already configured. Enter the password supplied with the subm
 
 ### Intelligence
 
-Agent Moneyball demonstrates non-trivial computational reasoning instead of returning an unverified chatbot response:
+Agent Moneyball turns free-form, natural-language scouting questions into structured data analysis over a large, complex pitch-level dataset. A coach or player can ask a new question in ordinary baseball language instead of writing SQL, building a Pandas workflow, learning the database schema, or waiting for a statistics team to run the query.
 
-1. A LangGraph analyst interprets the baseball question.
-2. The requested analysis is executed against the prepared CSV with Pandas or the deterministic location-chart tool.
-3. Structural checks validate filters, sample sizes, rates, coordinates, and evidence.
-4. A separate evidence gate either accepts the result, requests a revision, or returns cannot_answer when the data cannot support the claim.
+This is more than a chatbot wrapped around a fixed set of queries. The system performs a new reasoning and execution cycle for each question:
 
-Every displayed number must be traceable to executed evidence. The system is explicitly designed to refuse unsupported questions rather than fabricate an answer.
+1. A LangGraph analyst interprets the user's intent and identifies the relevant players, pitch types, counts, outcomes, measurements, and comparisons.
+2. It translates that request into an analysis plan and executable data-analysis code, then runs the code against 3,344 pitches and 145 TrackMan fields.
+3. Structural checks confirm that the calculations use the intended filters, sample sizes, rates, coordinates, and source evidence.
+4. A separate evidence gate reviews the result. It can accept the analysis, send it back for revision, or explain that the dataset cannot answer the question.
+
+The intelligence comes from dynamically deciding how to answer an open-ended question, carrying out the required computation, and checking whether the result is supported—not from selecting a prewritten response. Every displayed number must be traceable to executed evidence.
 
 ### Interaction
 
