@@ -84,6 +84,8 @@ Open [http://localhost:3000](http://localhost:3000). The 21-game demo dataset lo
 
 The bundled names are stable fictional aliases attached to the original source IDs. Caleb Archer is a useful pitcher for a reproducible walkthrough.
 
+These six prompts are intentionally scoped to fields available in the demo dataset. They have also been exercised against the production deployment.
+
 ### 1. Whiff location map
 
 ~~~text
@@ -110,37 +112,13 @@ Summarize Caleb Archer's arsenal by pitch type, including usage, velocity, spin 
 Compare Caleb Archer's fastball and changeup velocity, movement, and results. Explain which differences are most meaningful.
 ~~~
 
-### 5. Pitch mix by count
-
-~~~text
-Show Caleb Archer's pitch mix by count and identify his largest two-strike tendency.
-~~~
-
-### 6. Batter-handedness split
-
-~~~text
-Split Caleb Archer's results by batter handedness. Include pitch count, strike rate, whiff rate, and pitch mix.
-~~~
-
-### 7. Pitch sequencing
-
-~~~text
-What does Caleb Archer throw immediately after a called-strike fastball? Group the next pitch by pitch type and result.
-~~~
-
-### 8. Consecutive-fastball sequences
-
-~~~text
-Find plate appearances where Caleb Archer threw two consecutive fastballs. What did he throw next, and what happened?
-~~~
-
-### 9. Leaderboard
+### 5. Fastball velocity leaderboard
 
 ~~~text
 Rank pitchers with at least 25 fastballs by average fastball velocity. Show pitch count and velocity.
 ~~~
 
-### 10. Evidence-boundary demonstration
+### 6. Evidence-boundary demonstration
 
 ~~~text
 How does Caleb Archer perform with runners in scoring position by inning and score differential?
