@@ -138,6 +138,7 @@ The demo dataset does not record baserunner or score state, so the assistant sho
 8. In the browser print dialog, choose **Save as PDF**.
 
 Location analyses automatically receive a separate full-chart page when the report needs one.
+Long result tables automatically continue onto additional numbered pages, with their column headers repeated so no rows are dropped from the PDF.
 
 ### Reuse a report recipe for another player
 

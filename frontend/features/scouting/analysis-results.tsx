@@ -50,19 +50,36 @@ export function Metrics({ detail }: { detail: Answer }) {
   </div>)}</div>;
 }
 
-export function ResultTable({ rows, limit = 50 }: { rows?: Record<string, unknown>[] | null; limit?: number }) {
+export function ResultTable({ rows, limit = 50, offset = 0 }: {
+  rows?: Record<string, unknown>[] | null;
+  limit?: number;
+  offset?: number;
+}) {
   if (!rows?.length) return null;
   const columns = Object.keys(rows[0]).slice(0, 8);
+  const visible = rows.slice(offset, offset + limit);
+  const first = offset + 1;
+  const last = offset + visible.length;
   return <div className="result-table-wrap"><table><thead><tr>{columns.map(column => <th key={column}>{titleCase(column)}</th>)}</tr></thead><tbody>
-    {rows.slice(0, limit).map((row, index) => <tr key={index}>{columns.map(column => <td key={column}>{displayValue(row[column])}</td>)}</tr>)}
-  </tbody></table>{rows.length > limit && <small>Showing {limit.toLocaleString()} of {rows.length.toLocaleString()} rows.</small>}</div>;
+    {visible.map((row, index) => <tr key={offset + index}>{columns.map(column => <td key={column}>{displayValue(row[column])}</td>)}</tr>)}
+  </tbody></table>{(offset > 0 || last < rows.length) && <small>Rows {first.toLocaleString()}–{last.toLocaleString()} of {rows.length.toLocaleString()}.</small>}</div>;
 }
 
-export function ArtifactBody({ artifact, print = false, mode = "full" }: { artifact: Artifact; print?: boolean; mode?: ReportPageMode }) {
+export function ArtifactBody({ artifact, print = false, mode = "full", rowStart = 0, rowLimit }: {
+  artifact: Artifact;
+  print?: boolean;
+  mode?: ReportPageMode;
+  rowStart?: number;
+  rowLimit?: number;
+}) {
   const detail = artifact.detail;
   return <div className={`artifact-body ${print ? "print-artifact" : ""}`}>
-    {mode !== "chart" && <Metrics detail={detail}/>}
-    {mode !== "summary" && detail.location_chart && <StrikeZone chart={detail.location_chart}/>}<ResultTable rows={mode === "chart" ? null : detail.result_table} limit={print ? 18 : 50}/>
-    {!print && <Evidence detail={detail}/>}
+    {mode !== "chart" && mode !== "table" && (
+      <Metrics detail={detail}/>
+    )}
+    {mode !== "summary" && mode !== "table" && detail.location_chart && <StrikeZone chart={detail.location_chart}/>}<ResultTable rows={mode === "chart" ? null : detail.result_table} offset={rowStart} limit={rowLimit ?? (print ? 18 : 50)}/>
+    {!print && (
+      <Evidence detail={detail}/>
+    )}
   </div>;
 }

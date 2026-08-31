@@ -113,13 +113,17 @@ function Workspace({ artifacts, activeId, setActive, close, toggleReport, select
 
 function ReportThumbnail({ page, index }: { page: ReportPageSpec; index: number }) {
   const artifact = artifactFrom(page.turn);
+  const continuation = page.mode === "table";
+  const title = artifact?.title || page.turn.question || "Scouting response";
   return <div className="page-thumb"><div className="page-paper">
     <span>AGENT MONEYBALL / ADVANCE REPORT</span>
-    <b>{artifact?.title || page.turn.question || "Scouting response"}</b>
-    {page.mode !== "chart" && <div className="page-summary"><Response>{page.turn.text}</Response></div>}
-    {artifact && page.mode !== "chart" && <Metrics detail={artifact.detail}/>}
-    {artifact?.detail.location_chart && page.mode !== "summary" ? <StrikeZone chart={artifact.detail.location_chart} compact/> : null}
-    {artifact?.detail.result_table?.length && page.mode !== "chart" ? <ResultTable rows={artifact.detail.result_table} limit={5}/> : null}
+    <b>{title}{continuation ? " — Table continued" : ""}</b>
+    {page.mode !== "chart" && !continuation && <div className="page-summary"><Response>{page.turn.text}</Response></div>}
+    {artifact && page.mode !== "chart" && !continuation && (
+      <Metrics detail={artifact.detail}/>
+    )}
+    {artifact?.detail.location_chart && page.mode !== "summary" && page.mode !== "table" ? <StrikeZone chart={artifact.detail.location_chart} compact/> : null}
+    {artifact?.detail.result_table?.length && page.mode !== "chart" ? <ResultTable rows={artifact.detail.result_table} offset={page.rowStart ?? 0} limit={Math.min(page.rowLimit ?? 5, 5)}/> : null}
   </div><small>Page {index+1}</small></div>;
 }
 
@@ -144,7 +148,15 @@ function ReportComposer({ open, turns, selected, templates, templateId, template
 
 function ReportPage({ page, index, total, player, className }: { page: ReportPageSpec; index: number; total: number; player: string; className: string }) {
   const artifact = artifactFrom(page.turn);
-  return <article className={className}><header><div><b>AGENT MONEYBALL</b><span>TRACKMAN ADVANCE REPORT</span></div><small>{player || "SCOUTING REPORT"} · {index+1} / {total}</small></header><h1>{artifact?.title || page.turn.question || "Scouting analysis"}</h1><p className="print-question">{page.turn.question}{page.mode === "chart" ? " · Complete location chart" : ""}</p>{page.mode !== "chart" && <div className="print-answer"><Response>{page.turn.text}</Response></div>}{artifact && <ArtifactBody artifact={artifact} print mode={page.mode}/>}<footer>Generated from executed Agent Moneyball evidence. Verify game-planning decisions against source video and staff context.</footer></article>;
+  const continuation = page.mode === "table";
+  const title = artifact?.title || page.turn.question || "Scouting analysis";
+  const totalRows = artifact?.detail.result_table?.length ?? 0;
+  const rowStart = page.rowStart ?? 0;
+  const rowEnd = Math.min(totalRows, rowStart + (page.rowLimit ?? totalRows));
+  const subtitle = continuation
+    ? `Table continued · Rows ${rowStart + 1}–${rowEnd} of ${totalRows}`
+    : `${page.turn.question}${page.mode === "chart" ? " · Complete location chart" : ""}`;
+  return <article className={`${className}${continuation ? " table-continuation" : ""}`}><header><div><b>AGENT MONEYBALL</b><span>TRACKMAN ADVANCE REPORT</span></div><small>{player || "SCOUTING REPORT"} · {index+1} / {total}</small></header><h1>{title}{continuation ? " — Table continued" : ""}</h1><p className="print-question">{subtitle}</p>{page.mode !== "chart" && !continuation && <div className="print-answer"><Response>{page.turn.text}</Response></div>}{artifact && <ArtifactBody artifact={artifact} print mode={page.mode} rowStart={rowStart} rowLimit={page.rowLimit}/>}<footer>Generated from executed Agent Moneyball evidence. Verify game-planning decisions against source video and staff context.</footer></article>;
 }
 
 function PdfPreview({ open, turns, selected, player, close }: { open: boolean; turns: Turn[]; selected: string[]; player: string; close: () => void }) {

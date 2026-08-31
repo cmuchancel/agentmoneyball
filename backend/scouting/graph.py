@@ -102,6 +102,9 @@ def _text(packet: AnalysisPacket) -> str:
         return f"{m.group + ': ' if m.group else ''}{m.name}: {value}{unit}{fraction}"
     metrics = "; ".join(metric_text(metric) for metric in packet.metrics)
     answer = packet.answer_summary.strip() or metrics or "The analysis completed without a concise result."
+    answer = re.sub(r"\bpitches with valid locations\b", "plotted pitches", answer, flags=re.IGNORECASE)
+    answer = re.sub(r"\bvalid pitch locations\b", "plotted pitch locations", answer, flags=re.IGNORECASE)
+    answer = re.sub(r"\bvalid locations\b", "recorded locations", answer, flags=re.IGNORECASE)
     return answer + (f"\n\n**Caution:** {'; '.join(packet.warnings)}" if packet.warnings else "")
 
 
@@ -318,7 +321,7 @@ def build_graph(run: Runner, gate: Gate):
         reason = packet.warnings[0] if packet.status == "error" and packet.warnings else \
             verdict.get("reason") or (packet.warnings[0] if packet.warnings else "; ".join(state.get("deterministic_errors", [])))
         if packet.missing_fields:
-            reason = f"Required fields are missing: {', '.join(packet.missing_fields)}. {reason}"
+            reason = f"I can't answer this from the demo dataset because it does not include {', '.join(packet.missing_fields)}."
         report("Stopped without a numerical answer", reason or "The result could not be verified.", state["analysis_attempt"], "stopped")
         return {"final_answer": {
             "status": "cannot_answer", "answer": reason or "The result could not be verified.",

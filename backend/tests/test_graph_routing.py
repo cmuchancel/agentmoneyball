@@ -1,4 +1,4 @@
-from scouting.graph import _whiff_answer, _whiff_location_recovery, analysis_prompt, build_graph
+from scouting.graph import _text, _whiff_answer, _whiff_location_recovery, analysis_prompt, build_graph
 from scouting.schemas import AnalysisPacket, GateVerdict, Metric
 
 
@@ -95,6 +95,29 @@ def test_whiff_recovery_answer_uses_executed_chart_counts():
         {"Tagged Pitch Type": "Fastball", "Whiffs": 3},
         {"Tagged Pitch Type": "Slider", "Whiffs": 2},
     ]
+
+
+def test_coach_facing_answer_avoids_valid_location_jargon():
+    result = _text(good_packet().model_copy(update={
+        "answer_summary": "The chart includes 15 pitches with valid locations.",
+    }))
+    assert result.startswith("The chart includes 15 plotted pitches.")
+
+
+def test_missing_fields_use_natural_cannot_answer_language():
+    unavailable = good_packet().model_copy(update={
+        "status": "cannot_answer",
+        "metrics": [],
+        "executed_code": [],
+        "execution_evidence": [],
+        "missing_fields": ["baserunner state", "score differential"],
+    })
+    result = invoke(build_graph(lambda state: unavailable,
+                                lambda state: GateVerdict(verdict="pass", reason="unused")))
+    assert result["final_answer"]["answer"] == (
+        "I can't answer this from the demo dataset because it does not include "
+        "baserunner state, score differential."
+    )
 
 
 def test_gate_cannot_answer_repairs_an_incomplete_successful_packet():
