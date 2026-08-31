@@ -70,29 +70,35 @@ Leave `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `PITCHQUERY_API_SECRET` b
 
 ### 3. Start the backend
 
-In terminal 1, from the repository root:
+Launch the entire local stack with one command:
 
 ~~~bash
-pixi run backend
+pixi run app
 ~~~
 
-Wait for Uvicorn to report that it is running on `http://127.0.0.1:8000`. Verify it with:
+This starts FastAPI and Next.js together. Wait for the terminal to show both services are ready, then open [http://localhost:3000](http://localhost:3000). The app loads the bundled demo dataset automatically, and local development bypasses the production password screen.
+
+Verify the API from another terminal:
 
 ~~~bash
 curl http://localhost:8000/api/health
 ~~~
 
-### 4. Start the frontend
+To stop both services, press `Ctrl+C` once in the launcher terminal.
 
-In terminal 2, from the same repository root:
+### Manual two-terminal alternative
+
+If you want separate logs, start the backend in terminal 1:
+
+~~~bash
+pixi run backend
+~~~
+
+Then start the frontend in terminal 2:
 
 ~~~bash
 pixi run frontend
 ~~~
-
-Open [http://localhost:3000](http://localhost:3000). The app loads the bundled demo dataset automatically. Local development bypasses the password screen when production password/session variables are absent.
-
-To stop either server, press `Ctrl+C` in its terminal.
 
 The bundled dataset in `data/trackman_v3_games/` contains 3,344 anonymized pitches across 21 TrackMan V3 college scrimmage files. Stable fictional names are applied at runtime while source IDs remain attached.
 
@@ -104,6 +110,7 @@ Run these from the repository root unless noted otherwise.
 | --- | --- |
 | `pixi install` | Create the reproducible project environment. |
 | `pixi run frontend-install` | Install pinned frontend dependencies. |
+| `pixi run app` | Start the backend and frontend together; `Ctrl+C` stops both. |
 | `pixi run backend` | Start FastAPI with reload on port 8000. |
 | `pixi run frontend` | Start Next.js on port 3000. |
 | `pixi run test` | Run the backend test suite. |
