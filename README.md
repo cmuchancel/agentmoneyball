@@ -45,8 +45,8 @@ Numerical answers are based on executed data analysis, not model memory. The bac
 ### 1. Clone and install
 
 ~~~bash
-git clone https://github.com/cmuchancel/pitchquery.git
-cd pitchquery
+git clone https://github.com/cmuchancel/agentmoneyball.git
+cd agentmoneyball
 pixi install
 pixi run frontend-install
 ~~~
