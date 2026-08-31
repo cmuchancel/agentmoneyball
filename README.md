@@ -130,27 +130,31 @@ The demo dataset does not record baserunner or score state, so the assistant sho
 
 ## Build and export a report
 
-1. Run one or more prompts from the walkthrough above.
-2. Click **Add to report** beneath each response you want to include.
-3. Click **Report** in the top navigation.
-4. Review the selected responses in the Report Composer.
-5. Use the up/down controls to reorder sections or the remove control to omit one.
-6. Select **Preview PDF** to inspect the US Letter page layout.
+After running all six example prompts above:
+
+1. Return to the response for **Whiff location map** and click **Add to report**.
+2. Add **Two-strike location plan** and **Complete arsenal** the same way. The **Report** button in the top navigation should now show three selected responses.
+3. Click **Report** to open the Report Composer.
+4. Review the three sections and use the up/down controls if you want to change their order.
+5. Leave the template name as **Pitcher Advance Report**, or enter another name, and click the save button beside it. Saving the template makes these same analyses reusable for another pitcher.
+6. Select **Preview PDF** and inspect every US Letter page.
 7. Select **Print / Save PDF** in the preview, or **Export PDF** in the composer.
 8. In the browser print dialog, choose **Save as PDF**.
 
 Location analyses automatically receive a separate full-chart page when the report needs one.
 Long result tables automatically continue onto additional numbered pages, with their column headers repeated so no rows are dropped from the PDF.
 
-### Reuse a report recipe for another player
+### Apply the same report to Finn Mercer
 
-1. Add the desired responses to a report.
-2. Enter a template name and select the save button beside it.
-3. Choose the saved template and a player from the **Player variable** menu.
-4. Select **Generate selected template for player**.
-5. Preview and export the regenerated report.
+If a coach likes the statistics and scouting views in the Caleb Archer report, Agent Moneyball can run those same analyses for another pitcher without rebuilding the report one question at a time:
 
-Saved templates store the original questions as reusable recipes and replace the player name when they run.
+1. In the Report Composer, choose the saved **Pitcher Advance Report** template.
+2. Choose **Finn Mercer** from the **Player variable** menu.
+3. Select **Generate selected template for player**.
+4. Wait while Agent Moneyball reruns all three questions against Finn Mercer's pitches. The new responses are automatically added to the report.
+5. Review the updated conclusions, preview the new PDF, and export it.
+
+The saved template reuses the questions and report structure—not Caleb Archer's old numbers. Each analysis is executed again against Finn Mercer's data and verified before it appears in the new report.
 
 ## Project organization
 
