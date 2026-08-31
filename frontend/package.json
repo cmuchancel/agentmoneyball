@@ -1,10 +1,12 @@
 {
-  "name": "pitchquery-frontend",
+  "name": "agent-moneyball-frontend",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "lint": "next lint"
+    "typecheck": "tsc --noEmit",
+    "lint": "npm run typecheck",
+    "check": "npm run typecheck && npm run build"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.6",

@@ -1,0 +1,13 @@
+.codex-work/
+.data/
+.env*
+.git/
+.pixi/
+.venv/
+data/
+frontend/
+node_modules/
+outputs/
+supabase/
+build_trackman_leads.mjs
+*.xlsx

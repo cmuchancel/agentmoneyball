@@ -14,7 +14,9 @@ export type LocationChart = { title: string;
   encodings: {feature: string; channel: "color" | "shape"; label: string}[];
   points: {plate_x: number; plate_z: number; features: {name: string; value: string}[]; label: string}[] };
 
-const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const base = process.env.NODE_ENV === "production"
+  ? ""
+  : process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function checked(response: Response) {
   if (response.ok) return response.json();
@@ -22,10 +24,8 @@ async function checked(response: Response) {
   throw new Error(body.detail ?? "Request failed");
 }
 
-export async function upload(files?: File[]) {
-  const body = new FormData();
-  if (files?.length) files.forEach(file => body.append("files", file)); else body.append("use_demo", "true");
-  return checked(await fetch(`${base}/api/datasets`, { method: "POST", body })) as Promise<{dataset_id: string; profile: Profile}>;
+export async function loadDemo() {
+  return checked(await fetch(`${base}/api/datasets`, { method: "POST" })) as Promise<{dataset_id: string; profile: Profile}>;
 }
 
 export async function chat(thread_id: string, dataset_id: string, message: string, onProgress: (event: ProgressEvent) => void,

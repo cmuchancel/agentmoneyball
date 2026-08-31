@@ -2,34 +2,51 @@ from __future__ import annotations
 
 import os
 import json
-import shutil
-import uuid
+import hmac
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from openai import OpenAI
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 from backend.scouting.context import conversation_messages
 from backend.scouting.data import DataValidationError, combine_csv_files, load_and_prepare, profile_for_prompt, save_prepared
+from backend.scouting.supabase_store import RemoteDataset, SupabaseStore
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 
 from backend.scouting.graph import build_graph, daily_usage_snapshot, live_services
 
-STORE = ROOT / ".data"
+STORE = Path(os.getenv("PITCHQUERY_DATA_DIR", "/tmp/pitchquery" if os.getenv("VERCEL") else ROOT / ".data"))
 DEMO = ROOT / "data" / "trackman_v3_games"
 datasets: dict[str, dict[str, Any]] = {}
 graphs: dict[str, Any] = {}
+remote_store = SupabaseStore.from_env()
 
-app = FastAPI(title="PitchQuery", version="0.1.0")
-app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")],
+app = FastAPI(
+    title="Agent Moneyball API",
+    description="Evidence-gated analysis over the bundled TrackMan demo dataset.",
+    version="0.1.0",
+)
+origins = [origin.strip() for origin in os.getenv("FRONTEND_ORIGIN", "http://localhost:3000").split(",") if origin.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=origins,
                    allow_methods=["*"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def require_api_secret(request, call_next):
+    expected = os.getenv("PITCHQUERY_API_SECRET", "")
+    if os.getenv("VERCEL") and not expected:
+        return JSONResponse({"detail": "API access protection is not configured."}, status_code=503)
+    supplied = request.headers.get("X-PitchQuery-Secret", "")
+    if expected and not hmac.compare_digest(supplied, expected):
+        return JSONResponse({"detail": "Unauthorized."}, status_code=401)
+    return await call_next(request)
 
 
 class ChatRequest(BaseModel):
@@ -52,8 +69,20 @@ def register(path: Path, display_name: str, demo_aliases: bool = False) -> dict[
 
 
 def register_many(paths: list[Path], display_name: str, demo_aliases: bool = False) -> dict[str, Any]:
-    combined = STORE / "uploads" / f"{uuid.uuid4()}-combined.csv"
+    combined = STORE / "demo-combined.csv"
     return register(combine_csv_files(paths, combined), display_name, demo_aliases=demo_aliases)
+
+
+def register_remote(data: RemoteDataset) -> dict[str, Any]:
+    prepared = STORE / data.dataset_id / "pitches.csv"
+    prepared.parent.mkdir(parents=True, exist_ok=True)
+    prepared.write_bytes(data.prepared_csv)
+    datasets[data.dataset_id] = {
+        "path": prepared,
+        "profile": data.profile,
+        "openai_file_id": data.openai_file_id,
+    }
+    return {"dataset_id": data.dataset_id, "profile": data.profile.model_dump()}
 
 
 @app.get("/api/health")
@@ -62,36 +91,33 @@ def health() -> dict[str, str]:
 
 
 @app.post("/api/datasets")
-async def upload_dataset(file: UploadFile | None = File(None), files: list[UploadFile] | None = File(None),
-                         use_demo: bool = Form(False)):
-    if use_demo:
+def load_demo_dataset():
+    try:
+        if remote_store:
+            return register_remote(remote_store.get_demo_dataset())
+        if os.getenv("VERCEL"):
+            raise RuntimeError("Supabase is not configured for this deployment.")
         demo_files = sorted(DEMO.glob("*.csv"))
         if not demo_files:
-            raise HTTPException(404, "Bundled demo data is not installed.")
+            raise RuntimeError("Bundled demo data is not installed.")
         return register_many(demo_files, "21 public TrackMan V3 scrimmage files", demo_aliases=True)
-    uploads = files or ([file] if file else [])
-    if not uploads:
-        raise HTTPException(400, "Choose a CSV file or folder.")
-    batch = STORE / "uploads" / str(uuid.uuid4())
-    saved: list[Path] = []
-    for upload in uploads:
-        name = Path(upload.filename or "").name
-        if not name.lower().endswith(".csv"):
-            raise HTTPException(415, f"Only CSV uploads are supported ({name or 'unnamed file'}).")
-        target = batch / f"{len(saved) + 1:03d}-{name}"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with target.open("wb") as output:
-            shutil.copyfileobj(upload.file, output)
-        saved.append(target)
-    return register(saved[0], Path(uploads[0].filename or "upload.csv").name) if len(saved) == 1 \
-        else register_many(saved, f"{len(saved)} uploaded CSV files")
+    except (DataValidationError, RuntimeError) as exc:
+        raise HTTPException(503, str(exc)) from exc
 
 
 @app.post("/api/chat")
 def chat(request: ChatRequest):
     data = datasets.get(request.dataset_id)
+    if not data and remote_store:
+        try:
+            remote = remote_store.get_demo_dataset()
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+        if remote.dataset_id == request.dataset_id:
+            register_remote(remote)
+            data = datasets.get(request.dataset_id)
     if not data:
-        raise HTTPException(404, "Dataset not found; upload it again.")
+        raise HTTPException(404, "Demo dataset not found; reload the page.")
     if not os.getenv("OPENAI_API_KEY"):
         raise HTTPException(503, "Set OPENAI_API_KEY to run AI analysis.")
     state = {"thread_id": request.thread_id, "dataset_id": request.dataset_id,
@@ -106,7 +132,12 @@ def chat(request: ChatRequest):
         if request.dataset_id not in graphs:
             yield json.dumps({"type": "progress", "stage": "Preparing the dataset tools", "detail":
                               "Loading the prepared CSV into the analysis workspace.", "status": "active"}) + "\n"
-            file_id = OpenAI().files.create(file=data["path"].open("rb"), purpose="assistants").id
+            file_id = data.get("openai_file_id")
+            if not file_id:
+                file_id = OpenAI().files.create(file=data["path"].open("rb"), purpose="assistants").id
+                data["openai_file_id"] = file_id
+                if remote_store:
+                    remote_store.set_openai_file_id(request.dataset_id, file_id)
             runner, gate = live_services(file_id, data["path"], profile_for_prompt(profile))
             graphs[request.dataset_id] = build_graph(runner, gate)
             yield json.dumps({"type": "progress", "stage": "Dataset tools ready", "detail":

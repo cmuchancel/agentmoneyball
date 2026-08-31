@@ -5,6 +5,18 @@
 __pycache__/
 *.py[cod]
 .env
+.vercel/
+supabase/.temp/
 frontend/.next/
 frontend/node_modules/
 .DS_Store
+.vercel
+.env*
+!.env.example
+!frontend/.env.example
+.codex-work/
+node_modules
+outputs/
+*.tsbuildinfo
+frontend/**/* 2.tsx
+build_trackman_leads.mjs

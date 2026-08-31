@@ -58,5 +58,5 @@ def test_daily_usage_guard(tmp_path):
     usage.add(30)
     assert usage.snapshot()["remaining"] == 70
     usage.add(50)
-    with pytest.raises(RuntimeError, match="Daily PitchQuery token guard"):
+    with pytest.raises(RuntimeError, match="Daily Agent Moneyball token guard"):
         usage.ensure_capacity()

@@ -18,6 +18,7 @@ from langgraph.graph import END, START, StateGraph
 from .chart_tool import create_pitch_chart_tool
 from .prompts import ANALYST_SYSTEM_PROMPT, GATE_SYSTEM_PROMPT
 from .schemas import AnalysisPacket, AnalysisState, GateVerdict, LocationChart, deterministic_checks
+from .supabase_store import SupabaseStore
 
 MAX_ATTEMPTS = 3
 Runner = Callable[[AnalysisState], AnalysisPacket]
@@ -25,14 +26,17 @@ Gate = Callable[[AnalysisState], GateVerdict]
 
 
 class DailyUsage:
-    """Small local guardrail for this app's reported token usage."""
+    """Small local guardrail for Agent Moneyball's reported token usage."""
     def __init__(self):
         self.path = Path(os.getenv("PITCHQUERY_USAGE_FILE", Path(__file__).parents[2] / ".data" / "usage.json"))
         self.limit = int(os.getenv("PITCHQUERY_DAILY_TOKEN_LIMIT", "1500000"))
         self.reserve = int(os.getenv("PITCHQUERY_TOKEN_RESERVE", "250000"))
         self.lock = threading.Lock()
+        self.remote = SupabaseStore.from_env()
 
     def snapshot(self) -> dict[str, int | str]:
+        if self.remote:
+            return self.remote.usage_snapshot(date.today(), self.limit)
         try: data = json.loads(self.path.read_text())
         except (FileNotFoundError, json.JSONDecodeError): data = {}
         used = int(data.get("tokens", 0)) if data.get("date") == date.today().isoformat() else 0
@@ -42,10 +46,13 @@ class DailyUsage:
     def ensure_capacity(self) -> None:
         usage = self.snapshot()
         if int(usage["tokens"]) >= self.limit - self.reserve:
-            raise RuntimeError(f"Daily PitchQuery token guard reached ({usage['tokens']:,}/{self.limit:,}). Try again tomorrow or raise the configured limit.")
+            raise RuntimeError(f"Daily Agent Moneyball token guard reached ({usage['tokens']:,}/{self.limit:,}). Try again tomorrow or raise the configured limit.")
 
     def add(self, tokens: int) -> None:
         if tokens <= 0: return
+        if self.remote:
+            self.remote.add_usage(date.today(), tokens)
+            return
         with self.lock:
             usage = self.snapshot(); usage["tokens"] = int(usage["tokens"]) + tokens
             self.path.parent.mkdir(parents=True, exist_ok=True)

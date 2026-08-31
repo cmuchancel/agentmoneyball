@@ -1,7 +1,7 @@
 [workspace]
 name = "pitchquery"
 version = "0.1.0"
-description = "Conversational analyst for pitch-level TrackMan CSVs"
+description = "Agent Moneyball: evidence-gated analysis for pitch-level TrackMan data"
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "osx-64", "linux-64", "win-64"]
 
@@ -27,4 +27,7 @@ test = "pytest backend/tests -q"
 backend = "uvicorn backend.main:app --reload --reload-dir backend"
 frontend-install = "cd frontend && npm install"
 frontend = "cd frontend && npm run dev"
+typecheck = "cd frontend && npm run typecheck"
 build = "cd frontend && npm run build"
+check = "pytest backend/tests -q && cd frontend && npm run typecheck && npm run build"
+seed-demo = "python scripts/seed_supabase_demo.py"

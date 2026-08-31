@@ -27,6 +27,20 @@ class PitchChartInput(BaseModel):
     title: str = "Pitch locations"
 
 
+WHIFF_FILTER_VALUES = {
+    "strikeswinging", "swingingstrike", "swingingstrikes", "swingandmiss",
+    "swingandmisses", "swingsandmisses", "whiff", "whiffs",
+}
+
+
+def _filter_key(column: str, value: Any) -> str:
+    text = str(value).strip().casefold()
+    compact = re.sub(r"[^a-z0-9]+", "", text)
+    if column in {"PitchCall", "Outcome"} and compact in WHIFF_FILTER_VALUES:
+        return "__whiff__"
+    return text
+
+
 def _outcome(frame: pd.DataFrame) -> pd.Series:
     calls = frame["PitchCall"].fillna("").astype(str)
     known = calls.map({
@@ -61,17 +75,20 @@ def _feature(frame: pd.DataFrame, name: str) -> pd.Series:
 def _filtered(frame: pd.DataFrame, filters: list[PitchFilter]) -> pd.DataFrame:
     keep = pd.Series(True, index=frame.index)
     for item in filters:
-        if item.column not in frame:
+        if item.column in {"Outcome", "Count"}:
+            series = _feature(frame, item.column)
+        elif item.column in frame:
+            series = frame[item.column]
+        else:
             raise ValueError(f"Column {item.column!r} is not available.")
-        series = frame[item.column]
         values = item.value if isinstance(item.value, list) else [item.value]
         if item.operator in {"gt", "gte", "lt", "lte"}:
             numeric = pd.to_numeric(series, errors="coerce")
             target = float(values[0])
             match = {"gt": numeric.gt, "gte": numeric.ge, "lt": numeric.lt, "lte": numeric.le}[item.operator](target)
         else:
-            lowered = series.fillna("").astype(str).str.casefold()
-            targets = [str(value).casefold() for value in values]
+            lowered = series.fillna("").map(lambda value: _filter_key(item.column, value))
+            targets = [_filter_key(item.column, value) for value in values]
             match = lowered.isin(targets)
             if item.operator == "ne":
                 match = ~match
@@ -85,9 +102,10 @@ def create_pitch_chart_tool(path: Path, cache: dict[str, dict[str, Any]]):
     @tool(args_schema=PitchChartInput)
     def build_pitch_chart(request_id: str, filters: list[PitchFilter], color_by: str | None = None,
                           shape_by: str | None = None, title: str = "Pitch locations") -> str:
-        """Build a complete pitch-location chart from exact dataset filters. Use exact CSV columns in filters.
-        color_by and shape_by accept source columns plus derived Outcome and Count. Every matching pitch with a
-        numeric PlateLocSide and PlateLocHeight is included; the model must not create or serialize chart points.
+        """Build a complete pitch-location chart from exact dataset filters. Filters accept source columns plus
+        derived Outcome and Count; common whiff aliases map to raw PitchCall=StrikeSwinging. color_by and shape_by
+        accept the same derived features. Every matching pitch with numeric PlateLocSide and PlateLocHeight is
+        included; the model must not create or serialize chart points.
         """
         try:
             frame = _filtered(pd.read_csv(path, low_memory=False), filters)
