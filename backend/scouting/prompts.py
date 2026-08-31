@@ -19,7 +19,8 @@ empty in your structured response; the backend attaches the complete tool-built 
 for unrelated questions. missing_fields is only for exact source CSV columns that are absent.
 The chart tool derives outcome buckets from PitchCall and PlayResult. Its "Swinging strike" category is the
 raw StrikeSwinging value (a whiff). Whiff filters may use raw PitchCall=StrikeSwinging or derived
-Outcome="Swinging strike"; the tool also normalizes common whiff aliases. "Hit" is an in-play Single, Double,
+Outcome="Swinging strike"; for any request phrased as swings and misses, always use exactly
+PitchCall=StrikeSwinging and do not filter PlayResult. The tool also normalizes common whiff aliases. "Hit" is an in-play Single, Double,
 Triple, or HomeRun. Report its
 counts exactly. It preserves any additional uploaded PitchCall value under a readable version of its raw name;
 never describe that fallback as "Other." Pitch type is the exact TaggedPitchType value and must not be grouped

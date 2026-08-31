@@ -31,12 +31,20 @@ WHIFF_FILTER_VALUES = {
     "strikeswinging", "swingingstrike", "swingingstrikes", "swingandmiss",
     "swingandmisses", "swingsandmisses", "whiff", "whiffs",
 }
+WHIFF_EVENT_COLUMNS = {"PitchCall", "Outcome", "PlayResult", "PitchResult", "Result", "SwingResult"}
+
+
+def _is_whiff_filter(value: Any) -> bool:
+    compact = re.sub(r"[^a-z0-9]+", "", str(value).strip().casefold())
+    return compact in WHIFF_FILTER_VALUES or any(marker in compact for marker in (
+        "whiff", "swingingstrike", "strikeswinging", "swingandmiss", "swingsandmiss",
+        "swingmiss", "missedswing",
+    ))
 
 
 def _filter_key(column: str, value: Any) -> str:
     text = str(value).strip().casefold()
-    compact = re.sub(r"[^a-z0-9]+", "", text)
-    if column in {"PitchCall", "Outcome"} and compact in WHIFF_FILTER_VALUES:
+    if column in WHIFF_EVENT_COLUMNS and _is_whiff_filter(value):
         return "__whiff__"
     return text
 
@@ -75,20 +83,27 @@ def _feature(frame: pd.DataFrame, name: str) -> pd.Series:
 def _filtered(frame: pd.DataFrame, filters: list[PitchFilter]) -> pd.DataFrame:
     keep = pd.Series(True, index=frame.index)
     for item in filters:
-        if item.column in {"Outcome", "Count"}:
+        values = item.value if isinstance(item.value, list) else [item.value]
+        comparison_column = item.column
+        if item.column in WHIFF_EVENT_COLUMNS and any(_is_whiff_filter(value) for value in values):
+            # The analyst may express the same event as a PitchCall, Outcome, PlayResult,
+            # or a decorated phrase such as "swinging strike (whiff)". Route all of those
+            # through the canonical derived outcome instead of silently returning zero rows.
+            series = _outcome(frame)
+            comparison_column = "Outcome"
+        elif item.column in {"Outcome", "Count"}:
             series = _feature(frame, item.column)
         elif item.column in frame:
             series = frame[item.column]
         else:
             raise ValueError(f"Column {item.column!r} is not available.")
-        values = item.value if isinstance(item.value, list) else [item.value]
         if item.operator in {"gt", "gte", "lt", "lte"}:
             numeric = pd.to_numeric(series, errors="coerce")
             target = float(values[0])
             match = {"gt": numeric.gt, "gte": numeric.ge, "lt": numeric.lt, "lte": numeric.le}[item.operator](target)
         else:
-            lowered = series.fillna("").map(lambda value: _filter_key(item.column, value))
-            targets = [_filter_key(item.column, value) for value in values]
+            lowered = series.fillna("").map(lambda value: _filter_key(comparison_column, value))
+            targets = [_filter_key(comparison_column, value) for value in values]
             match = lowered.isin(targets)
             if item.operator == "ne":
                 match = ~match

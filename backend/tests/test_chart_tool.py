@@ -37,8 +37,12 @@ def test_chart_tool_keeps_every_pitch_and_classifies_whiffs(tmp_path):
     ("PitchCall", "SwingingStrike"),
     ("PitchCall", "whiffs"),
     ("PitchCall", "swings and misses"),
+    ("PitchCall", "swinging strike (whiff)"),
     ("Outcome", "Swinging strike"),
     ("Outcome", "whiff"),
+    ("Outcome", "swinging strikes / whiffs"),
+    ("PlayResult", "whiff"),
+    ("PitchResult", "swing-and-miss"),
 ])
 def test_chart_tool_normalizes_whiff_filters(tmp_path, column, value):
     path = tmp_path / "pitches.csv"
