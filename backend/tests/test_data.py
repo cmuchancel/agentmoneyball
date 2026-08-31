@@ -84,4 +84,7 @@ def test_uploaded_name_columns_populate_roster(tmp_path):
     assert profile.pitcher_teams == {"Taylor Reed": ["Home"]}
     assert profile.batter_teams == {"Jordan Cole": ["Away"]}
     assert not profile.pitcher_aliases
-    assert "pitcher_names" not in profile_for_prompt(profile)
+    prompt_profile = profile_for_prompt(profile)
+    assert prompt_profile["pitcher_names"] == ["Taylor Reed"]
+    assert prompt_profile["batter_names"] == ["Jordan Cole"]
+    assert "pitcher_teams" not in prompt_profile

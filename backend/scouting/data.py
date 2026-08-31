@@ -180,7 +180,6 @@ def combine_csv_files(paths: list[Path], destination: Path) -> Path:
 
 
 def profile_for_prompt(profile: DatasetProfile) -> dict[str, Any]:
-    """Keep model context small; Code Interpreter can inspect the actual CSV."""
+    """Keep model context small while retaining the rosters needed to resolve player roles."""
     return profile.model_dump(exclude={"missing_values", "sample_rows", "dtypes", "source_files",
-                                       "pitcher_names", "batter_names", "pitcher_teams", "batter_teams",
-                                       "pitcher_aliases", "batter_aliases"})
+                                       "pitcher_teams", "batter_teams", "pitcher_aliases", "batter_aliases"})
