@@ -8,6 +8,20 @@ The public deployment is intentionally demo-only: private uploads are disabled, 
 - Interactive API docs when running locally: [localhost:8000/docs](http://localhost:8000/docs)
 - Data license and provenance: [data/ATTRIBUTION.md](data/ATTRIBUTION.md)
 
+## Project 0 requirements
+
+### Intelligence
+
+Agent Moneyball demonstrates non-trivial computational reasoning rather than returning an unverified chatbot response. It converts a scouting question into an executable Pandas analysis, runs that analysis against pitch-level data, validates the resulting evidence, and either revises the work, answers with traceable metrics, or returns `cannot_answer` when the dataset cannot support the claim.
+
+### Interaction
+
+Users ask natural-language baseball questions and receive streamed analysis progress, written conclusions, metrics, data tables, interactive strike-zone visualizations, and report-ready artifacts. The prompt library below provides reproducible starting points while still allowing open-ended exploration.
+
+### Reproducibility
+
+The project has one obvious local entry point—`pixi run app`—and a pinned Python and Node environment. The public demo uses a bundled, attributed dataset, and the full clean-clone verification command is `pixi run check`.
+
 ## What it can do
 
 - Analyze pitch usage, velocity, spin, movement, outcomes, count splits, handedness, locations, and sequences.
