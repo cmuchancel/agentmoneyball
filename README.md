@@ -1,355 +1,216 @@
 # Agent Moneyball
 
-Agent Moneyball is an evidence-gated baseball scouting assistant. It turns plain-English questions into executed Pandas analyses over a bundled TrackMan-style demo dataset, checks the computed evidence, and only then returns numerical claims.
+Agent Moneyball is an evidence-gated baseball scouting assistant. A user asks a plain-English question, the system executes an analysis over pitch-level TrackMan data, checks the evidence, and returns an answer with metrics, tables, or an interactive strike-zone chart.
 
-The public deployment is intentionally demo-only: private uploads are disabled, the prepared dataset is stored in Supabase, and the website and API are password/secret protected.
+**Live demo:** [pitchquery-tau.vercel.app](https://pitchquery-tau.vercel.app)
 
-- Web app: [pitchquery-tau.vercel.app](https://pitchquery-tau.vercel.app)
-- Interactive API docs when running locally: [localhost:8000/docs](http://localhost:8000/docs)
-- Data license and provenance: [data/ATTRIBUTION.md](data/ATTRIBUTION.md)
+The hosted demo is already configured. Enter the password supplied with the submission; no OpenAI API key or local setup is required to use the live website.
 
 ## Project 0 requirements
 
 ### Intelligence
 
-Agent Moneyball demonstrates non-trivial computational reasoning rather than returning an unverified chatbot response. It converts a scouting question into an executable Pandas analysis, runs that analysis against pitch-level data, validates the resulting evidence, and either revises the work, answers with traceable metrics, or returns `cannot_answer` when the dataset cannot support the claim.
+Agent Moneyball demonstrates non-trivial computational reasoning instead of returning an unverified chatbot response:
+
+1. A LangGraph analyst interprets the baseball question.
+2. The requested analysis is executed against the prepared CSV with Pandas or the deterministic location-chart tool.
+3. Structural checks validate filters, sample sizes, rates, coordinates, and evidence.
+4. A separate evidence gate either accepts the result, requests a revision, or returns cannot_answer when the data cannot support the claim.
+
+Every displayed number must be traceable to executed evidence. The system is explicitly designed to refuse unsupported questions rather than fabricate an answer.
 
 ### Interaction
 
-Users ask natural-language baseball questions and receive streamed analysis progress, written conclusions, metrics, data tables, interactive strike-zone visualizations, and report-ready artifacts. The prompt library below provides reproducible starting points while still allowing open-ended exploration.
+The user can:
 
-### Reproducibility
+- ask open-ended scouting questions in natural language;
+- watch the analysis process stream as it runs;
+- inspect written conclusions, metrics, tables, methods, and execution evidence;
+- explore pitch locations in an interactive catcher-view strike zone;
+- add useful responses to a report;
+- reorder report sections and export a US Letter PDF.
 
-The project has one obvious local entry point—`pixi run app`—and a pinned Python and Node environment. The public demo uses a bundled, attributed dataset, and the full clean-clone verification command is `pixi run check`.
+### Reproducible implementation
 
-## What it can do
-
-- Analyze pitch usage, velocity, spin, movement, outcomes, count splits, handedness, locations, and sequences.
-- Render strike-zone plots from numeric plate coordinates.
-- Stream the analysis process while it runs.
-- Attach reproducible evidence, including the executed method and result rows.
-- Refuse unsupported questions instead of inventing an answer.
-- Build a multi-page scouting report from saved analysis artifacts.
-- Load the same 21-game demo dataset locally or from Supabase in production.
-
-## How it works
-
-```text
-Browser
-  │  password-protected Next.js app
-  ▼
-Same-origin API relay
-  │  server-only API secret
-  ▼
-FastAPI + LangGraph analyst
-  │  execute → validate evidence → revise or answer
-  ├──────────────► OpenAI Code Interpreter
-  └──────────────► Supabase demo dataset + usage ledger
-```
-
-Numerical answers are based on executed data analysis, not model memory. The backend checks that the response is supported by the generated evidence before returning it.
+The repository has a clear frontend/backend structure, pinned Python and Node dependencies, an attributed 21-game demo dataset, and one local starting command. A fresh checkout does not require Supabase, Vercel, or any hidden local file.
 
 ## Launch locally
 
-### Prerequisites
+### Requirements
 
-- [Pixi](https://pixi.sh) for the Python and Node toolchain
-- An OpenAI API key for live analysis
+- [Pixi](https://pixi.sh)
+- An OpenAI API key
 
-### 1. Clone and install
+### 1. Get the repository
 
 ~~~bash
 git clone https://github.com/cmuchancel/agentmoneyball.git
 cd agentmoneyball
-pixi install
-pixi run frontend-install
 ~~~
 
-### 2. Configure the local API
+### 2. Create the environment file
 
-Create the local environment file:
+Copy the example:
 
 ~~~bash
 cp .env.example .env
 ~~~
 
-Open `.env` and set your OpenAI key:
+Open **.env** and set:
 
 ~~~dotenv
 OPENAI_API_KEY=your-real-openai-api-key
-OPENAI_MODEL=gpt-5.4-mini
 ~~~
 
-Leave `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `PITCHQUERY_API_SECRET` blank for localhost. Local development reads the bundled CSV dataset directly and does not require Supabase, Vercel, or the production password.
+Keep SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and PITCHQUERY_API_SECRET blank for localhost. The local app reads the bundled CSV files directly and does not use the production password.
 
-### 3. Start the backend
-
-Launch the entire local stack with one command:
+### 3. Launch everything with one command
 
 ~~~bash
 pixi run app
 ~~~
 
-This starts FastAPI and Next.js together. Wait for the terminal to show both services are ready, then open [http://localhost:3000](http://localhost:3000). The app loads the bundled demo dataset automatically, and local development bypasses the production password screen.
+That single command:
 
-Verify the API from another terminal:
+- creates the pinned Pixi environment when needed;
+- installs frontend packages on the first run;
+- starts FastAPI at [localhost:8000](http://localhost:8000);
+- starts Next.js at [localhost:3000](http://localhost:3000);
+- shuts down both services when you press **Ctrl+C**.
 
-~~~bash
-curl http://localhost:8000/api/health
-~~~
+Open [http://localhost:3000](http://localhost:3000). The 21-game demo dataset loads automatically.
 
-To stop both services, press `Ctrl+C` once in the launcher terminal.
+## Prompts to copy and paste
 
-### Manual two-terminal alternative
+The bundled names are stable fictional aliases attached to the original source IDs. Caleb Archer is a useful pitcher for a reproducible walkthrough.
 
-If you want separate logs, start the backend in terminal 1:
+### 1. Whiff location map
 
-~~~bash
-pixi run backend
-~~~
-
-Then start the frontend in terminal 2:
-
-~~~bash
-pixi run frontend
-~~~
-
-The bundled dataset in `data/trackman_v3_games/` contains 3,344 anonymized pitches across 21 TrackMan V3 college scrimmage files. Stable fictional names are applied at runtime while source IDs remain attached.
-
-## Common commands
-
-Run these from the repository root unless noted otherwise.
-
-| Command | Purpose |
-| --- | --- |
-| `pixi install` | Create the reproducible project environment. |
-| `pixi run frontend-install` | Install pinned frontend dependencies. |
-| `pixi run app` | Start the backend and frontend together; `Ctrl+C` stops both. |
-| `pixi run backend` | Start FastAPI with reload on port 8000. |
-| `pixi run frontend` | Start Next.js on port 3000. |
-| `pixi run test` | Run the backend test suite. |
-| `pixi run typecheck` | Check all frontend TypeScript without emitting files. |
-| `pixi run build` | Create the production frontend build. |
-| `pixi run check` | Run backend tests, frontend type checking, and the production build. |
-| `pixi run seed-demo` | Prepare and upload the bundled demo dataset to Supabase. |
-| `pixi run pytest backend/tests/test_chart_tool.py -q` | Run one focused backend test module. |
-| `cd frontend && npm run dev` | Start only the frontend using the local Node install. |
-| `cd frontend && npm run lint` | Run the frontend static check; on Next.js 16 this aliases TypeScript checking. |
-| `cd frontend && npm run check` | Type-check and production-build the frontend. |
-
-Useful API smoke checks:
-
-```bash
-curl http://localhost:8000/api/health
-curl -X POST http://localhost:8000/api/datasets
-```
-
-To run one test by name:
-
-```bash
-pixi run pytest backend/tests/test_chart_tool.py -q -k whiff
-```
-
-Before submitting or grading the project, run:
-
-```bash
-pixi run check
-```
-
-## Copy/paste AI prompt library
-
-These prompts are scoped to fields that exist in the bundled demo dataset. Start with the named pitcher Caleb Archer so results are easy to reproduce. Names in the demo are stable fictional aliases attached to the original source IDs.
-
-| Scope | What the prompt exercises |
-| --- | --- |
-| Location | Numeric plate coordinates and interactive strike-zone rendering. |
-| Arsenal | Pitch type, usage, velocity, spin, and movement. |
-| Situational | Count and batter-handedness splits. |
-| Sequence | Pitch order within a plate appearance. |
-| Comparison | Grouped metrics with sample-size controls. |
-| Evidence boundary | A deliberate request for fields the demo does not contain. |
-
-### Location and whiffs
-
-```text
+~~~text
 Where does Caleb Archer get swings and misses? Render the strike zone and color by pitch type.
-```
+~~~
 
-Expected sanity check: 25 whiffs — 20 changeups, 3 fastballs, and 2 sliders.
+This should produce a location chart and a pitch-type breakdown. The known result is 25 whiffs: 20 changeups, 3 fastballs, and 2 sliders.
 
-```text
-Show every Caleb Archer pitch location, color by pitch type, and summarize the concentration inside and outside the strike zone.
-```
+### 2. Two-strike location plan
 
-```text
-Where does Caleb Archer throw on 0-2 counts? Plot the locations and break the results down by pitch type.
-```
+~~~text
+Show Caleb Archer's pitch locations in 0-2 counts, colored by pitch type and shaped by pitch outcome.
+~~~
 
-### Arsenal and movement
+### 3. Complete arsenal
 
-```text
+~~~text
 Summarize Caleb Archer's arsenal by pitch type, including usage, velocity, spin rate, horizontal movement, and induced vertical movement.
-```
+~~~
 
-```text
+### 4. Fastball/changeup comparison
+
+~~~text
 Compare Caleb Archer's fastball and changeup velocity, movement, and results. Explain which differences are most meaningful.
-```
+~~~
 
-```text
-Rank pitchers with at least 25 fastballs by average fastball velocity. Show pitch count and velocity.
-```
+### 5. Pitch mix by count
 
-### Counts, matchups, and sequencing
-
-```text
+~~~text
 Show Caleb Archer's pitch mix by count and identify his largest two-strike tendency.
-```
+~~~
 
-```text
+### 6. Batter-handedness split
+
+~~~text
 Split Caleb Archer's results by batter handedness. Include pitch count, strike rate, whiff rate, and pitch mix.
-```
+~~~
 
-```text
+### 7. Pitch sequencing
+
+~~~text
 What does Caleb Archer throw immediately after a called-strike fastball? Group the next pitch by pitch type and result.
-```
+~~~
 
-```text
+### 8. Consecutive-fastball sequences
+
+~~~text
 Find plate appearances where Caleb Archer threw two consecutive fastballs. What did he throw next, and what happened?
-```
+~~~
 
-### Report building
+### 9. Leaderboard
 
-```text
-Build a scouting summary for Caleb Archer with arsenal, count tendencies, whiff locations, and a concise game-plan recommendation.
-```
+~~~text
+Rank pitchers with at least 25 fastballs by average fastball velocity. Show pitch count and velocity.
+~~~
 
-Add useful results to the report as you go, then switch to the report view to review the assembled pages.
+### 10. Evidence-boundary demonstration
 
-### Evidence-gate test
-
-```text
+~~~text
 How does Caleb Archer perform with runners in scoring position by inning and score differential?
-```
+~~~
 
-The demo schema does not contain the required baserunner and score state. A correct response explains that the question cannot be answered from the available evidence.
+The demo data does not contain the required baserunner and score state. A correct result explains that the question cannot be answered from the available evidence.
 
-## API overview
+## Build and export a report
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/health` | Confirm API availability. |
-| `POST` | `/api/datasets` | Load the prepared demo dataset. |
-| `POST` | `/api/chat` | Stream analysis progress and the final answer as NDJSON. |
+1. Run one or more prompts from the walkthrough above.
+2. Click **Add to report** beneath each response you want to include.
+3. Click **Report** in the top navigation.
+4. Review the selected responses in the Report Composer.
+5. Use the up/down controls to reorder sections or the remove control to omit one.
+6. Select **Preview PDF** to inspect the US Letter page layout.
+7. Select **Print / Save PDF** in the preview, or **Export PDF** in the composer.
+8. In the browser print dialog, choose **Save as PDF**.
 
-Production API routes require `X-PitchQuery-Secret`. The browser never receives that secret; the Next.js server relay adds it. See [docs/API.md](docs/API.md) for request and response examples.
+Location analyses automatically receive a separate full-chart page when the report needs one.
 
-## Project map
+### Reuse a report recipe for another player
 
-```text
+1. Add the desired responses to a report.
+2. Enter a template name and select the save button beside it.
+3. Choose the saved template and a player from the **Player variable** menu.
+4. Select **Generate selected template for player**.
+5. Preview and export the regenerated report.
+
+Saved templates store the original questions as reusable recipes and replace the player name when they run.
+
+## Project organization
+
+~~~text
 .
 ├── backend/
-│   ├── main.py                    FastAPI routes and application metadata
+│   ├── main.py                    FastAPI routes and streaming API
 │   ├── scouting/
-│   │   ├── chart_tool.py          Deterministic chart/filter execution
+│   │   ├── chart_tool.py          Deterministic location filters and charts
 │   │   ├── data.py                CSV validation and dataset profiling
-│   │   ├── graph.py               Analyst, evidence gate, and revision graph
-│   │   ├── prompts.py             Model contracts and domain guidance
-│   │   ├── schemas.py             Pydantic contracts and deterministic checks
-│   │   ├── supabase_store.py      Production dataset and ledger persistence
-│   │   └── usage.py               Bounded usage accounting
-│   └── tests/                     Backend regression tests
-├── data/
-│   └── trackman_v3_games/         Bundled demo CSVs
-├── docs/                          Architecture, API, and deployment guides
+│   │   ├── graph.py               Analyst, evidence gate, and revision loop
+│   │   ├── prompts.py             Analyst and verifier contracts
+│   │   ├── schemas.py             Structured analysis models and checks
+│   │   └── supabase_store.py      Production-only storage adapter
+│   └── tests/                     Regression and routing tests
+├── data/trackman_v3_games/        Bundled 21-game demo dataset
+├── docs/                          Architecture, API, and deployment details
 ├── frontend/
-│   ├── app/                       Next.js routes, API relay, login, and shell
-│   ├── components/ui/             Reusable presentation primitives
-│   ├── features/scouting/         Scouting domain, prompts, plots, and results
-│   ├── lib/api.ts                 Typed streaming API client
-│   ├── lib/auth.ts                Server-side session helpers
-│   └── proxy.ts                   Whole-site password boundary
-├── scripts/                       Dataset preparation and Supabase seeding
-├── supabase/migrations/           Reproducible database schema
-├── pixi.toml                      Environment and canonical commands
-└── vercel.json                    API deployment configuration
-```
+│   ├── app/                       Next.js pages, login, and API relay
+│   ├── components/ui/             Reusable interface primitives
+│   ├── features/scouting/         Scouting types, prompts, charts, and results
+│   └── lib/                       Typed API and authentication helpers
+├── scripts/run_local.py           One-command local process launcher
+├── scripts/seed_supabase_demo.py  Production demo seeding utility
+├── supabase/migrations/           Reproducible production database schema
+└── pixi.toml                      Pinned environment and task definitions
+~~~
 
-The frontend feature split keeps business types and formatting in `domain.ts`, proven examples in `prompts.ts`, strike-zone rendering in `strike-zone.tsx`, and result presentation in `analysis-results.tsx`. The main page coordinates state and user interactions without owning those implementations.
+The main page coordinates state and interaction. Baseball calculations, data preparation, visualizations, API transport, authentication, and production storage live in separate modules.
 
-## Configuration
+## Dataset and responsible use
 
-### Backend
+The demo contains 3,344 anonymized pitches from 21 TrackMan V3 college scrimmage files, with 32 fictional pitcher aliases and 50 fictional batter aliases. Source IDs remain attached. Private uploads are disabled in the hosted deployment.
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `OPENAI_API_KEY` | For live chat | OpenAI project key used by the analyst. |
-| `OPENAI_MODEL` | No | Defaults to `gpt-5.4-mini`. |
-| `PITCHQUERY_DAILY_TOKEN_LIMIT` | No | Daily application token ceiling. |
-| `PITCHQUERY_TOKEN_RESERVE` | No | Headroom reserved for an in-flight analysis. |
-| `FRONTEND_ORIGIN` | Production | Allowed web origin for CORS. |
-| `SUPABASE_URL` | Production | Supabase project URL. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Production | Server-only database credential. |
-| `PITCHQUERY_API_SECRET` | Production | Shared secret accepted by protected API routes. |
+See [data/ATTRIBUTION.md](data/ATTRIBUTION.md) for source attribution and CC BY 4.0 terms.
 
-### Frontend
+Live analysis uses OpenAI Code Interpreter and may consume API tokens. Tool calls, output, and daily application usage are bounded.
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `PITCHQUERY_API_URL` | Production | Server-side URL of the deployed API. |
-| `PITCHQUERY_API_SECRET` | Production | Same API secret as the backend; never public. |
-| `PITCHQUERY_PASSWORD` | Production | Password checked by the login route. |
-| `PITCHQUERY_SESSION_TOKEN` | Production | Long random value used to sign the session cookie. |
-| `NEXT_PUBLIC_API_URL` | Local only | Optional direct local API override. Do not use for the protected production path. |
+## Technical documentation
 
-Never commit real credentials. `.env.example` files document names only, and `.gitignore` excludes local secrets.
-
-## Correctness and security boundaries
-
-- The public product uses only the bundled demo dataset; upload controls are visibly disabled.
-- Production authentication is enforced at the Next.js boundary, not only hidden in the UI.
-- The browser calls a same-origin relay, so the API secret remains server-side.
-- The API separately rejects requests with a missing or invalid secret.
-- Supabase's service-role key is used only by the backend.
-- Dataset IDs are derived from content, making repeated demo loads stable.
-- Pitcher/batter aliases remain tied to structural source IDs.
-- Location plots require finite numeric plate coordinates.
-- Whiffs include the normalized outcome aliases covered by regression tests.
-- Rates must include explicit numerators and denominators in evidence.
-- Unsupported analyses return `cannot_answer` rather than fabricated values.
-- Usage is bounded by tool-call, output, and daily ledger limits.
-
-## Grading checklist
-
-- [ ] `pixi install` succeeds from a clean clone.
-- [ ] `.env` is created from `.env.example`; no secret is committed.
-- [ ] `pixi run check` passes.
-- [ ] `/api/health` returns `{"status":"ok"}`.
-- [ ] `/api/datasets` reports 21 games and 3,344 pitches.
-- [ ] The verified whiff prompt returns 25 total whiffs with the expected pitch-type split.
-- [ ] The unsupported-schema prompt returns a clear evidence limitation.
-- [ ] Upload buttons remain disabled in demo mode.
-- [ ] Production `/api/*` requests fail without the shared API secret.
-- [ ] Production pages redirect unauthenticated visitors to login.
-
-## Troubleshooting
-
-| Symptom | Likely cause | Fix |
-| --- | --- | --- |
-| Chat says the OpenAI key is missing | `.env` was not created or loaded | Copy `.env.example` to `.env`, set `OPENAI_API_KEY`, and restart the backend. |
-| API returns `401` locally | A placeholder API secret is configured on only one side | Remove local `PITCHQUERY_API_SECRET`, or set the same value for both frontend and backend. |
-| Frontend cannot reach the API | Backend is stopped or the URL is wrong | Start `pixi run backend`; local default is `http://localhost:8000`. |
-| No location chart is produced | Matching rows lack numeric `PlateLocSide`/`PlateLocHeight` | Choose another query or confirm the selected pitch subset. |
-| Supabase demo load returns `503` | Production database variables or seeded row are missing | Apply the migration, configure both Supabase variables, and run `pixi run seed-demo`. |
-| Build fails after dependency changes | Lockfile and install are out of sync | Run `pixi run frontend-install`, then `pixi run check`. |
-
-## More documentation
-
-- [Architecture and invariants](docs/ARCHITECTURE.md)
-- [API contract](docs/API.md)
+- [Architecture and data invariants](docs/ARCHITECTURE.md)
+- [Streaming API contract](docs/API.md)
 - [Vercel and Supabase deployment](docs/DEPLOYMENT.md)
-- [Contributing and review checklist](CONTRIBUTING.md)
-- [Dataset attribution](data/ATTRIBUTION.md)
-
-## Cost note
-
-The test suite injects analysis and gate functions, so tests do not need an OpenAI key. Live chat uses OpenAI Code Interpreter and incurs API usage. Defaults use low reasoning, bounded hosted-tool calls, bounded output, and a daily usage ledger; that ledger covers this application, not other applications sharing the same OpenAI project.
+- [Contribution and review guide](CONTRIBUTING.md)
