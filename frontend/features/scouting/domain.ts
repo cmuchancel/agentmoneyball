@@ -57,6 +57,9 @@ export function artifactFrom(turn: Turn): Artifact | undefined {
 }
 
 export function reportPages(turns: Turn[], selected: string[]): ReportPageSpec[] {
+  // Browser print engines clip content inside fixed US Letter sheets. Constructing
+  // explicit continuation pages keeps every result row inside a known page boundary,
+  // while reserving the first page for the answer and its headline metrics.
   return selected.flatMap<ReportPageSpec>(id => {
     const turn = turns.find(item => item.id === id);
     if (!turn) return [];

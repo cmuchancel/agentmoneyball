@@ -1,3 +1,11 @@
+"""Evidence-gated natural-language analysis workflow.
+
+The analyst is allowed to propose and execute an analysis, but it cannot publish its
+own result directly. Deterministic checks and a separate semantic gate decide whether
+the evidence is sufficient, whether the analyst must revise, or whether the system
+must stop without a numerical answer.
+"""
+
 from __future__ import annotations
 
 import json
@@ -78,6 +86,7 @@ def daily_usage_snapshot() -> dict[str, int | str]:
 
 
 def analysis_prompt(state: AnalysisState, profile: dict[str, Any]) -> dict[str, Any]:
+    """Build a bounded prompt; large chart point arrays never re-enter model context."""
     feedback = state.get("gate_feedback", "")
     previous = state.get("analysis_packet") if feedback else None
     if previous and previous.get("location_chart"):
@@ -244,6 +253,7 @@ def live_services(file_id: str, path: Path, profile: dict[str, Any]) -> tuple[Ru
 
 
 def build_graph(run: Runner, gate: Gate):
+    """Compile the bounded analyze -> check -> gate -> revise/finalize state machine."""
     def short(text: str, limit: int = 180) -> str:
         text = " ".join(text.split())
         return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + "…"
@@ -283,6 +293,8 @@ def build_graph(run: Runner, gate: Gate):
         return {"analysis_attempt": attempt, "analysis_packet": packet.model_dump(), "gate_verdict": {}}
 
     def check_result(state: AnalysisState) -> dict[str, Any]:
+        # Cheap, deterministic checks run before the model-based evidence review. This
+        # prevents a fluent semantic verdict from overriding hard arithmetic failures.
         packet = AnalysisPacket.model_validate(state["analysis_packet"])
         errors = deterministic_checks(packet, state["question"])
         result: dict[str, Any] = {"deterministic_errors": errors}
@@ -295,6 +307,8 @@ def build_graph(run: Runner, gate: Gate):
         return result
 
     def semantic_gate(state: AnalysisState) -> dict[str, Any]:
+        # A successful analyst packet is still only a proposal. The independent gate
+        # checks that it answered the user's actual question and cites enough evidence.
         report("Reviewing answer coverage", "The evidence gate is checking the requested filters, definitions, and supporting output.", state["analysis_attempt"])
         verdict = gate(state)
         packet = AnalysisPacket.model_validate(state["analysis_packet"])

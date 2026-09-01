@@ -187,6 +187,12 @@ The saved template reuses the questions and report structure—not Caleb Archer'
 
 The main page coordinates state and interaction. Baseball calculations, data preparation, visualizations, API transport, authentication, and production storage live in separate modules.
 
+## AI-assisted development disclosure
+
+OpenAI Codex was used as an AI-assisted development partner for ideation, implementation, debugging, testing, documentation, and deployment. The author directed the product, selected the scope and interface, evaluated the outputs, reviewed the changes, and made the final decisions. AI-generated suggestions were verified through automated tests, production builds, and browser walkthroughs rather than treated as proof that the project worked.
+
+This development assistance is separate from Agent Moneyball's runtime intelligence, which interprets scouting questions, executes data-analysis code, and verifies the resulting evidence. See [AI assistance disclosure](docs/AI_ASSISTANCE.md) for the complete account.
+
 ## Dataset and responsible use
 
 The demo contains 3,344 anonymized pitches from 21 TrackMan V3 college scrimmage files, with 32 fictional pitcher aliases and 50 fictional batter aliases. Source IDs remain attached. Private uploads are disabled in the hosted deployment.
@@ -200,4 +206,5 @@ Live analysis uses OpenAI Code Interpreter and may consume API tokens. Tool call
 - [Architecture and data invariants](docs/ARCHITECTURE.md)
 - [Streaming API contract](docs/API.md)
 - [Vercel and Supabase deployment](docs/DEPLOYMENT.md)
+- [AI assistance disclosure](docs/AI_ASSISTANCE.md)
 - [Contribution and review guide](CONTRIBUTING.md)

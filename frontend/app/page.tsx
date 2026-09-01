@@ -214,6 +214,8 @@ export default function Home() {
     setActiveId(artifact.id);
   }
   async function runQueries(queries: string[], addResultsToReport = false) {
+    // Templates may enqueue several questions. Run them serially so each response can
+    // use the recent conversation while streaming an intelligible progress trace.
     if (!dataset || busy || !queries.length) return;
     setBusy(true); setError(""); setMobileView("conversation"); let history = turns.slice(-6).map(turn => ({role: turn.role, content: turn.text}));
     try {
@@ -256,6 +258,8 @@ export default function Home() {
     setSelected(current => { const index = current.indexOf(id); const target = index + direction; if (index < 0 || target < 0 || target >= current.length) return current; const next = [...current]; [next[index],next[target]]=[next[target],next[index]]; return next; });
   }
   function saveTemplate() {
+    // Store questions as player-parameterized recipes rather than saving old results;
+    // running a template therefore recomputes and verifies every player's statistics.
     const recipes = selected.map(id => turns.find(turn => turn.id === id)?.question).filter(Boolean).map(question => {
       const source = detectPlayer(question);
       return source ? question!.replace(new RegExp(source.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"), "{{player}}") : question!;
